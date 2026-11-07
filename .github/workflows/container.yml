@@ -18,9 +18,11 @@ on:
         type: boolean
         default: false
 
+# One group per event and ref; only pull-request runs are cancelled by newer pushes,
+# so a manual run can never cancel a build of main.
 concurrency:
-  group: container-${{ github.ref }}
-  cancel-in-progress: true
+  group: container-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE: ghcr.io/${{ github.repository }}

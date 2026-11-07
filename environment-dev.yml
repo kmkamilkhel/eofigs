@@ -9,7 +9,6 @@ dependencies:
   - scipy
   - matplotlib-base>=3.9
   - cartopy
-  - cmcrameri
   - matplotlib-scalebar
   - rioxarray
   - geopandas
@@ -27,3 +26,6 @@ dependencies:
   - mkdocs-material
   - mkdocstrings-python
   - pip
+  - pip:
+      # conda-forge's cmcrameri 1.10 reports version 0.0.0 (cmcrameri-feedstock#11)
+      - cmcrameri>=1.9
