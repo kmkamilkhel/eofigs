@@ -1,0 +1,49 @@
+name: Bug report
+description: Something in eofigs does not work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem. Please search existing issues first.
+        Questions on how to use eofigs are best asked in Discussions (Q&A).
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the problem, including the full error message if there is one.
+    validations:
+      required: true
+  - type: textarea
+    id: example
+    attributes:
+      label: Minimal example
+      description: The shortest code that shows the problem, using synthetic data or a small open dataset.
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: figure
+    attributes:
+      label: Figure or output
+      description: If the problem is visual, attach the figure (PNG) or describe what looks wrong.
+  - type: input
+    id: eofigs-version
+    attributes:
+      label: eofigs version
+      placeholder: "python -c \"import eofigs; print(eofigs.__version__)\""
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, Python version, install method (pip, conda, Docker), and versions of matplotlib, cartopy and xarray.
+    validations:
+      required: true
