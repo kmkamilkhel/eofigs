@@ -16,6 +16,10 @@ journal-ready figures that know the analysis, the variable and the printed size.
 - **Journal presets and one-call export** to vector PDF plus 600 dpi PNG or TIFF, with a figure
   check.
 
+## Gallery
+
+<!-- gallery-grid -->
+
 ## Roadmap
 
 | Version | Content |

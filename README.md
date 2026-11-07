@@ -20,6 +20,24 @@ journal-ready figures that know the analysis, the variable and the printed size:
 - **Journal presets and one-call export** to vector PDF plus 600 dpi PNG or TIFF, with a check
   of size, resolution, smallest font, font embedding and colour-blind safety.
 
+## Gallery
+
+<table>
+<tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/style_export/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/style_export.png" alt="Journal style and export"></a><br><b>Journal style and export</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/large_raster/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/large_raster.png" alt="Large raster at print size"></a><br><b>Large raster at print size</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_significance/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_significance.png" alt="Trend and significance"></a><br><b>Trend and significance</b></td>
+</tr>
+<tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/palettes/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/palettes.png" alt="Built-in palettes"></a><br><b>Built-in palettes</b></td>
+<td width="33%"></td>
+<td width="33%"></td>
+</tr>
+</table>
+
+More in the [gallery](https://kmkamilkhel.github.io/eofigs/gallery/), with the code for
+each figure.
+
 ## Installation
 
 The first release is not yet on PyPI. To try the development version:
@@ -41,8 +59,8 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 ## Roadmap
 
 Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
-`save_figure`, `check_figure`, `variable`, `register_variable`, `fit_raster`, `trend` and
-`figure_set`.
+`save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
+`register_variable`, `fit_raster`, `trend` and `figure_set`.
 
 
 **v0.1**
@@ -50,7 +68,8 @@ Available in the development version: `set_style`, `style`, `new_figure`, `label
 | Function | Purpose |
 |---|---|
 | `set_style`, `new_figure`, `save_figure` | Journal presets (Elsevier, Springer, MDPI, Wiley, Frontiers, Taylor & Francis), widths in mm, one-call export |
-| `check_figure` | Size, dpi, smallest font, embedded fonts, colour-blind safety |
+| `check_figure`, `cvd_preview` | Size, dpi, smallest font, embedded fonts, colour-blind safety; preview as seen with colour-vision deficiencies |
+| `palettes`, `tidy_axes` | Built-in palettes and colour maps; a few ticks at round values |
 | `figure_set` | Manuscript figure set with automatic Fig/FigS numbering and a manifest |
 | `variable`, `register_variable` | Variable library: colour map, symbol, unit, range |
 | `fit_raster` | Reduce large rasters to the pixels the printed figure needs |

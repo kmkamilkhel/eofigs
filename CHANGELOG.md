@@ -8,6 +8,18 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `eofigs.palettes`: Okabe-Ito, muted, slate and terracotta-slate palettes and neutral
+  colours; colour maps `"eofigs.slate"` and `"eofigs.terra_slate"` (and `_r`).
+- `cvd_preview`: one image showing a figure in normal vision, protan, deutan and tritan
+  simulation and greyscale.
+- `tidy_axes`: at most five ticks at round values on axes and colour bars; `check_figure`
+  warns about axes with more than five tick labels.
+- `save_figure` rasterises dense layers (mesh plots, collections with more than 2 000
+  elements) inside vector files; `rasterize_dense=False` keeps them vector.
+- Styles use a true minus sign.
+- Example gallery built from `examples/*.py` when the documentation is built, with the
+  check report and downloads for each figure.
+
 - `set_style` and the `style` context manager: journal presets for Elsevier, Springer,
   MDPI, Wiley, Frontiers and Taylor & Francis (plus `custom`), font fallback to
   metric-compatible free fonts with a warning, mathtext matched to the text font,

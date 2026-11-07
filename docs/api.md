@@ -10,6 +10,16 @@
 
 ::: eofigs.label_panels
 
+::: eofigs.tidy_axes
+
+## Colours
+
+::: eofigs.palettes
+    options:
+      members: false
+
+::: eofigs.cvd_preview
+
 ## Variables
 
 ::: eofigs.variable
