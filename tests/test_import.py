@@ -11,9 +11,11 @@ def test_public_api():
     assert set(eofigs.__all__) == {
         "CheckReport",
         "CheckResult",
+        "FigureSet",
         "Variable",
         "__version__",
         "check_figure",
+        "figure_set",
         "fit_raster",
         "label_panels",
         "new_figure",
@@ -21,6 +23,7 @@ def test_public_api():
         "save_figure",
         "set_style",
         "style",
+        "trend",
         "variable",
     }
     for name in eofigs.__all__:

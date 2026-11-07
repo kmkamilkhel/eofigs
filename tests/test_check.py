@@ -216,3 +216,10 @@ def test_report_output():
     text = str(report)
     assert "FAILED" in text and "[a.pdf]" in text
     assert report.to_dict()["results"][1]["status"] == "fail"
+
+
+def test_single_colour_contours_are_not_colour_maps(sans_font):
+    fig, ax = _figure(sans_font)
+    data = np.random.default_rng(4).random((5, 5))
+    ax.contour(data, levels=[0.5], colors="#1A1A1A")
+    assert _result(eofigs.check_figure(fig), "colour maps").message == "No colour-mapped data."
