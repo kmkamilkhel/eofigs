@@ -18,6 +18,7 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 from eofigs._colour import (
+    TEXT_COLOUR,
     classify_cmap,
     cmap_lightness,
     delta_e2000,
@@ -26,9 +27,10 @@ from eofigs._colour import (
     multi_sequential_ok,
     simulate_cvd,
     to_lab,
+    to_srgb,
 )
 from eofigs._presets import MM_PER_INCH, Journal, check_art, get_journal
-from eofigs.styling import current_journal
+from eofigs.styling import MAX_TICKS, current_journal
 
 Status = Literal["pass", "warn", "fail"]
 
@@ -97,7 +99,8 @@ def check_figure(
     """Check a figure, or an exported PDF/PNG/TIFF, against a journal preset.
 
     For a live figure the checks are: printed size, resolution, smallest font size,
-    fonts in use, colour-blind safety of categorical colours, and colour maps. For
+    fonts in use, colour-blind safety of categorical colours, colour maps, and the
+    number of tick labels per axis (at most five; more is a warning). For
     files: size and resolution (raster files), size and embedded fonts (PDF).
 
     Parameters
@@ -231,6 +234,7 @@ def _check_live(fig: Figure, preset: Journal, dpi: float | None, art: str) -> li
         _fonts_in_use_result(texts, preset),
         _categorical_result(fig),
         _cmap_result(fig),
+        _tick_result(fig),
     ]
 
 
@@ -375,6 +379,180 @@ def _cmap_result(fig: Figure) -> CheckResult:
         return CheckResult("colour maps", "pass", "No colour-mapped data.")
     listed = ", ".join(f"{k} ({v})" for k, v in sorted(seen.items()))
     return CheckResult("colour maps", "pass", f"Colour maps: {listed}.")
+
+
+def _tick_count(axis) -> int:
+    """Count the non-empty major tick labels shown inside the view interval."""
+    params = axis.get_tick_params(which="major")
+    sides = ("labelbottom", "labeltop") if axis.axis_name == "x" else ("labelleft", "labelright")
+    if not any(params.get(side, side in ("labelbottom", "labelleft")) for side in sides):
+        return 0
+    low, high = sorted(axis.get_view_interval())
+    span = (high - low) * 1e-9
+    locs = [v for v in axis.get_majorticklocs() if low - span <= v <= high + span]
+    if not locs:
+        return 0
+    labels = axis.get_major_formatter().format_ticks(locs)
+    return sum(1 for label in labels if str(label).strip())
+
+
+def _tick_result(fig: Figure) -> CheckResult:
+    crowded = []
+    for i, ax in enumerate(fig.axes, 1):
+        if not ax.get_visible() or not ax.axison:
+            continue
+        for axis in (ax.xaxis, ax.yaxis):
+            if axis.get_scale() != "linear":
+                continue
+            n = _tick_count(axis)
+            if n > MAX_TICKS:
+                crowded.append(f"axes {i} {axis.axis_name} ({n})")
+    if crowded:
+        return CheckResult(
+            "ticks",
+            "warn",
+            f"More than {MAX_TICKS} tick labels: {', '.join(crowded[:6])}. "
+            "eofigs.tidy_axes limits ticks to round values.",
+        )
+    return CheckResult("ticks", "pass", f"At most {MAX_TICKS} tick labels per axis.")
+
+
+# ----------------------------------------------------------------------------- preview
+
+
+_PREVIEW_VIEWS = ("Normal", "Protan", "Deutan", "Tritan", "Greyscale")
+
+
+def cvd_preview(
+    fig_or_path: Figure | str | Path, out: str | Path | None = None, dpi: float = 150
+) -> Path:
+    """Write one image showing a figure as seen with colour-vision deficiencies.
+
+    The image has five panels: normal vision, protan, deutan and tritan simulations
+    (Machado et al. 2009, full severity, the same as :func:`check_figure`) and greyscale
+    (CIELAB lightness). Use it to confirm that every series, class and colour-map step
+    is still distinguishable, and that sequential data keep their order in greyscale.
+
+    Parameters
+    ----------
+    fig_or_path : matplotlib.figure.Figure or path
+        A figure, or a PNG, TIFF or JPEG file.
+    out : str or pathlib.Path, optional
+        Output PNG. Defaults to ``<name>_cvd.png`` next to an input file; required for a
+        figure.
+    dpi : float, default 150
+        Resolution at which a figure is rendered for the preview.
+
+    Returns
+    -------
+    pathlib.Path
+        The written PNG.
+
+    Raises
+    ------
+    ValueError
+        For a figure without ``out``, or an unsupported file type (render PDFs to PNG
+        first).
+    FileNotFoundError
+        If the input file does not exist.
+
+    Examples
+    --------
+    >>> import eofigs
+    >>> fig, ax = eofigs.new_figure("single")
+    >>> _ = ax.plot([0, 1], [0, 1])
+    >>> eofigs.cvd_preview(fig, "fig1_cvd.png")  # doctest: +SKIP
+    """
+    if out is None and isinstance(fig_or_path, Figure):
+        raise ValueError("Pass out= (the PNG to write) when previewing a figure.")
+    rgb = _preview_input(fig_or_path, dpi)
+    if out is None:
+        source = Path(fig_or_path)
+        out = source.with_name(f"{source.stem}_cvd.png")
+    out = Path(out)
+    views = [rgb, *(simulate_cvd(rgb, kind) for kind in ("protan", "deutan", "tritan"))]
+    grey = _lightness_to_grey(to_lab(rgb)[..., 0])
+    views.append(np.repeat(grey[..., None], 3, axis=-1))
+    _write_preview(views, out)
+    return out
+
+
+def _preview_input(fig_or_path: Figure | str | Path, dpi: float) -> np.ndarray:
+    from io import BytesIO
+
+    from PIL import Image
+
+    if isinstance(fig_or_path, Figure):
+        buffer = BytesIO()
+        fig_or_path.savefig(buffer, format="png", dpi=dpi, facecolor="white")
+        buffer.seek(0)
+        image = Image.open(buffer)
+    else:
+        path = Path(fig_or_path)
+        if path.suffix.lower() not in _RASTER_SUFFIXES:
+            raise ValueError(
+                f"Cannot preview {path.suffix!r} files; use PNG, TIFF or JPEG "
+                "(export a PNG with eofigs.save_figure first)."
+            )
+        if not path.exists():
+            raise FileNotFoundError(path)
+        image = Image.open(path)
+    with image:
+        rgba = np.asarray(image.convert("RGBA"), dtype=float) / 255
+    alpha = rgba[..., 3:]
+    return rgba[..., :3] * alpha + (1 - alpha)  # flatten transparency onto white
+
+
+def _lightness_to_grey(lightness: np.ndarray) -> np.ndarray:
+    """Return the sRGB grey value that has the given CIELAB lightness."""
+    f = (lightness + 16) / 116
+    luminance = np.where(lightness > 8, f**3, lightness / (24389 / 27))
+    return to_srgb(luminance)
+
+
+def _preview_columns(width: int, height: int, n: int = len(_PREVIEW_VIEWS)) -> int:
+    """Choose the number of columns that brings the whole preview closest to 16:9."""
+
+    def distance(ncols: int) -> float:
+        nrows = -(-n // ncols)
+        empty = nrows * ncols - n  # empty cells waste space
+        return abs(np.log(ncols * width / (nrows * height) / (16 / 9))) + 0.2 * empty
+
+    return min(range(1, n + 1), key=distance)
+
+
+def _write_preview(views: list[np.ndarray], out: Path) -> None:
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    height, width = views[0].shape[:2]
+    ncols = _preview_columns(width, height)
+    nrows = -(-len(views) // ncols)
+    gap = max(8, min(width, height) // 40)
+    header = max(30, round(0.06 * max(width, height) / max(ncols, 2)))
+    cell_w, cell_h = width + gap, height + header + gap
+    total_w, total_h = ncols * cell_w - gap, nrows * cell_h - gap
+    preview = Figure(figsize=(total_w / 100, total_h / 100), dpi=100, facecolor="white")
+    FigureCanvasAgg(preview)
+    for i, (view, title) in enumerate(zip(views, _PREVIEW_VIEWS, strict=True)):
+        row, col = divmod(i, ncols)
+        left = col * cell_w / total_w
+        top = 1 - row * cell_h / total_h
+        bottom = top - (header + height) / total_h
+        ax = preview.add_axes((left, bottom, width / total_w, height / total_h))
+        ax.imshow(np.clip(view, 0, 1), interpolation="nearest")
+        ax.set_axis_off()
+        preview.text(
+            left + width / total_w / 2,
+            top - header / total_h / 2,
+            title,
+            ha="center",
+            va="center",
+            fontsize=header * 0.55 * 72 / 100,
+            fontweight="bold",
+            color=TEXT_COLOUR,
+        )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    preview.savefig(out, dpi=100, facecolor="white")
 
 
 # ----------------------------------------------------------------------------- files

@@ -25,7 +25,11 @@ def test_clean_figure_passes(sans_font):
     ax.plot([0, 1], [1, 0], color="#E69F00")
     report = eofigs.check_figure(fig)
     assert report.passed, str(report)
-    assert report.warnings == []
+    # matplotlib's default 0-1 axis has six ticks (0, 0.2, ..., 1): a warning only
+    assert [r.name for r in report.warnings] == ["ticks"]
+    eofigs.tidy_axes(ax)
+    report = eofigs.check_figure(fig)
+    assert report.warnings == [], str(report)
     assert "single width" in _result(report, "size").message
 
 
