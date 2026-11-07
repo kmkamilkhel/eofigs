@@ -74,8 +74,10 @@ include = ["src/eofigs", "tests", "README.md", "LICENSE", "CHANGELOG.md", "CITAT
 packages = ["src/eofigs"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra --strict-markers"
+testpaths = ["src", "tests"]
+addopts = "-ra --strict-markers --doctest-modules"
+filterwarnings = ["error"]
+markers = ["slow: long-running performance tests"]
 
 [tool.coverage.run]
 source = ["eofigs"]
