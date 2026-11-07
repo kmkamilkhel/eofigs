@@ -31,6 +31,8 @@ nav:
   - Journal presets: journals.md
   - Variables: variables.md
   - Large rasters: rasters.md
+  - Trends: trends.md
+  - Figure sets: figure-sets.md
   - API reference: api.md
   - Changelog: changelog.md
 

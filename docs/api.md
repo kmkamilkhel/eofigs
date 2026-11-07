@@ -22,6 +22,16 @@
 
 ::: eofigs.fit_raster
 
+## Trends
+
+::: eofigs.trend
+
+## Figure sets
+
+::: eofigs.figure_set
+
+::: eofigs.FigureSet
+
 ## Export
 
 ::: eofigs.save_figure

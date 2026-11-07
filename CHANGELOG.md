@@ -32,6 +32,16 @@ uses [Semantic Versioning](https://semver.org/).
   mode or mask fraction), ignores nodata, sets sparse pixels to NaN (`min_valid`), keeps the
   CRS, stays lazy with dask, and reads files at the output size (integer files are averaged
   exactly by eofigs).
+- `trend`: Theil–Sen slope and Mann–Kendall test (tie- and continuity-corrected) per pixel,
+  against real dates, with `min_valid`, a memory budget for any series length, and dask
+  support; compared with `scipy.stats.theilslopes` in the tests.
+- `figure_set` and `FigureSet`: manuscript figures saved as `Fig01_<name>` / `FigS01_<name>`
+  in the journal's formats, reordering with file renaming, and `figures_manifest.csv` with
+  sizes, resolution, check results and captions; resumes from the manifest.
+
+### Changed
+
+- `check_figure` ignores single-colour contour lines when checking colour maps.
 - Project structure, packaging, test and documentation workflows.
 - Container image workflow for GitHub Container Registry (development `dev` tag); release tags build
   a multi-architecture image (amd64 and arm64).
