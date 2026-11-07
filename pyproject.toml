@@ -75,7 +75,7 @@ packages = ["src/eofigs"]
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
-addopts = "-ra --strict-markers --doctest-modules"
+addopts = "-ra --strict-markers --doctest-modules -m \"not slow\""
 filterwarnings = ["error"]
 markers = ["slow: long-running performance tests"]
 
