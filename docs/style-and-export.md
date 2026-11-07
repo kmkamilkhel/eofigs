@@ -4,51 +4,22 @@ Every eofigs figure starts from the printed size. Choose a journal, create the f
 column width in millimetres, and save it in the journal's formats with a check report.
 
 ```python
-import cmcrameri.cm as cmc
-import numpy as np
-
 import eofigs
 
-rng = np.random.default_rng(42)
-years = np.arange(2001, 2025)
-ndvi_forest = 0.72 + 0.002 * (years - 2001) + rng.normal(0, 0.01, years.size)
-ndvi_shrub = 0.48 - 0.001 * (years - 2001) + rng.normal(0, 0.012, years.size)
-y, x = np.mgrid[0:60, 0:80]
-trend = 0.004 * np.sin(x / 12) * np.cos(y / 15) + rng.normal(0, 0.0004, (60, 80))
-
-with eofigs.style("elsevier", font="serif"):
-    fig, (ax1, ax2) = eofigs.new_figure("double", height_mm=65, ncols=2)
-
-    ax1.plot(years, ndvi_forest, marker="o", label="Forest")
-    ax1.plot(years, ndvi_shrub, marker="s", label="Shrubland")
-    ax1.set_xlabel("Year")
-    ax1.set_ylabel("NDVI")
-    ax1.legend(loc="center right")
-
-    limit = np.abs(trend).max()
-    image = ax2.imshow(trend, cmap=cmc.vik, vmin=-limit, vmax=limit)
-    ax2.set_xticks([])
-    ax2.set_yticks([])
-    fig.colorbar(image, ax=ax2, label=r"NDVI trend (decade$^{-1}$)", shrink=0.9)
-
-    eofigs.label_panels([ax1, ax2])
-    report = eofigs.save_figure(fig, "figures/fig2")  # fig2.pdf + fig2.tiff for Elsevier
-    print(report)
+eofigs.set_style("elsevier")
+fig, (ax1, ax2) = eofigs.new_figure("double", height_mm=65, ncols=2)
+ax1.plot(years, ndvi_forest, marker="o", label="Forest")
+...
+eofigs.tidy_axes(ax1, colour_bar)  # at most five ticks, at round values
+eofigs.label_panels([ax1, ax2])
+report = eofigs.save_figure(fig, "figures/fig2")  # fig2.pdf + fig2.tiff for Elsevier
+print(report)
 ```
 
-![Two-panel example: NDVI time series and a trend map](assets/style_export_example.png)
+![Two-panel example: NDVI time series and a trend map](gallery/images/style_export.png)
 
-The check report for the live figure:
-
-```text
-Figure check (elsevier): passed
-  PASS  size: 190.0 x 65.0 mm (double width).
-  PASS  resolution: 600 dpi (at least 500 needed).
-  PASS  font size: Smallest text 7 pt (minimum 7 pt).
-  PASS  fonts: Fonts in use: Times New Roman.
-  PASS  colour-blind safety: 2 categorical colours, all distinguishable.
-  PASS  colour maps: Colour maps: vik (diverging).
-```
+The full script, the downloads and the check report are on the
+[gallery page](gallery/style_export.md).
 
 `save_figure` adds the same checks for each written PDF, PNG or TIFF file, including the
 fonts embedded in the PDF.
@@ -67,10 +38,42 @@ fonts embedded in the PDF.
 | Bold | `bold=True` for Times New Roman Bold–style figures |
 | Colours | Okabe–Ito for lines and markers; cmcrameri `batlow` for images |
 | Panel labels | `labels="(a)"`, bold; `"a"`, `"(A)"`, `"A"`, `"a)"` or `None` |
+| Minus sign | true minus (−), not a hyphen |
 | PDF fonts | TrueType (Type 42), never Type 3 |
 
 Write units with mathtext, for example `r"gC m$^{-2}$ yr$^{-1}$"`, not with Unicode
 superscripts: some journal fonts have no glyph for "⁻¹" and print an empty box.
+
+## An author or lab style in one call
+
+Package defaults stay generic. An author or a lab sets its own look with one call at the
+top of a script, for example bold Arial text with bold capital panel letters and at most five
+ticks per axis:
+
+```python
+eofigs.set_style(journal="custom", font="Arial", bold=True, labels="A", max_ticks=5)
+```
+
+This sets every text element in bold, falls back to Liberation Sans or Arimo where Arial is
+not installed (with a warning), makes `label_panels` write bold **A**, **B**, ... just
+outside the top-left corner of each panel, and turns on the tick rule (below). A journal preset can be combined with it
+(`journal="elsevier"`) to keep that journal's sizes and resolution.
+
+## Ticks and dense layers
+
+- `tidy_axes(ax, colour_bar, ...)` limits each axis and colour bar to a few ticks at round
+  values (1, 2, 2.5 and 5 times a power of ten): five, or the `max_ticks` set with
+  `set_style`. Ticks set explicitly, log axes and map axes are left alone; date axes get
+  concise date labels. Every eofigs recipe calls it.
+- `set_style(max_ticks=5)` makes a tick limit a house rule: `check_figure` then warns about
+  axes with more tick labels. Without it (the default) ticks are not checked, because the
+  number of ticks is a matter of style, not a journal requirement.
+- `save_figure` rasterises dense layers in vector files: mesh plots (`pcolormesh`) and
+  collections with more than 2 000 elements (dense scatter plots, many polygons) are drawn
+  as an image at the output resolution inside the PDF, while text, axes and lines stay
+  vector. Pass `rasterize_dense=False` to keep everything vector.
+- Figures without panels get no panel letter: call `label_panels` only for multi-panel
+  figures.
 
 ## Sizes
 
@@ -103,6 +106,10 @@ Elsevier. Vector PDFs are not affected.
 | Size | width matches a column width (warning otherwise); not wider or taller than the journal allows |
 | Resolution | at least the journal's resolution for the artwork type (`art=`) |
 | Font size | smallest text at least the journal minimum |
-| Fonts | fonts in use (live figure) or embedded (PDF); Type 3 fonts fail |
+| Fonts | fonts in use (live figure) or embedded (PDF); Type 3 fonts fail. Metric-compatible free fonts pass in place of the journal's fonts, with a note: Liberation Sans and Arimo for Arial, TeX Gyre Heros for Helvetica, Liberation Serif, Tinos and TeX Gyre Termes for Times New Roman |
 | Colour-blind safety | line, marker, bar and fill colours differ by CIEDE2000 ≥ 10 in normal vision and ≥ 6 under simulated protan, deutan and tritan vision (Machado et al. 2009); close pairs are a warning, because markers, line styles or direct labels can separate them |
 | Colour maps | sequential maps need monotonic lightness, diverging maps monotonic lightness on each side of the centre, cyclic and categorical maps are exempt; rainbow-type maps (jet, rainbow, hsv, turbo, ...) fail |
+| Ticks | only with `set_style(max_ticks=...)`: at most that many tick labels per axis (warning otherwise; `tidy_axes` fixes it) |
+
+`cvd_preview` shows the figure as seen with colour-vision deficiencies; see
+[Colours](colours.md).

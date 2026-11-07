@@ -17,7 +17,9 @@ OKABE_ITO = (
     "#000000",
 )
 TEXT_COLOUR = "#1A1A1A"
+SECONDARY_COLOUR = "#4D4D4D"
 GRID_COLOUR = "#E0E0E0"
+NO_DATA_COLOUR = "#BDBDBD"
 
 # Machado, Oliveira & Fernandes (2009), severity 1.0, applied to linear sRGB.
 CVD_MATRICES = {
@@ -53,7 +55,7 @@ _SRGB_TO_XYZ = np.array(
 )
 _D65 = np.array([0.95047, 1.0, 1.08883])
 
-# Colour-map classes. Names are compared without a "cmc." prefix and without "_r".
+# Colour-map classes. Names are compared without a "cmc." or "eofigs." prefix and without "_r".
 CMAP_BANNED = frozenset(
     {
         "jet",
@@ -77,6 +79,8 @@ CMAP_SEQUENTIAL = frozenset(
         "viridis", "plasma", "inferno", "magma", "cividis", "Greys", "Purples", "Blues",
         "Greens", "Oranges", "Reds", "YlOrBr", "YlOrRd", "OrRd", "PuRd", "RdPu", "BuPu", "GnBu",
         "PuBu", "YlGnBu", "PuBuGn", "BuGn", "YlGn", "gray", "binary", "bone",
+        # eofigs
+        "slate",
     }
 )  # fmt: skip
 CMAP_DIVERGING = frozenset(
@@ -86,6 +90,8 @@ CMAP_DIVERGING = frozenset(
         # matplotlib
         "PiYG", "PRGn", "BrBG", "PuOr", "RdGy", "RdBu", "RdYlBu", "RdYlGn", "Spectral",
         "coolwarm", "bwr", "seismic",
+        # eofigs
+        "terra_slate",
     }
 )  # fmt: skip
 CMAP_MULTI_SEQUENTIAL = frozenset({"bukavu", "fes", "oleron"})
@@ -176,10 +182,11 @@ def delta_e2000(lab1: np.ndarray, lab2: np.ndarray) -> float:
 
 
 def base_cmap_name(cmap: Colormap) -> str:
-    """Return a colour map's name without a ``cmc.`` prefix or ``_r`` suffix."""
+    """Return a colour map's name without a ``cmc.``/``eofigs.`` prefix or ``_r`` suffix."""
     name = cmap.name
-    if name.startswith("cmc."):
-        name = name[4:]
+    for prefix in ("cmc.", "eofigs."):
+        if name.startswith(prefix):
+            name = name[len(prefix) :]
     if name.endswith("_r"):
         name = name[:-2]
     return name

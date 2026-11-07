@@ -16,10 +16,11 @@ with eofigs.style("elsevier", font="serif"):
     eofigs.save_figure(fig, "figures/fig1")
 ```
 
-![A 6000 x 6000 terrain model reduced to 2000 x 2000 pixels for a single-column map](assets/raster_example.png)
+![A 6000 x 6000 terrain model reduced to 2000 x 2000 pixels for a single-column map](gallery/images/large_raster.png)
 
 In this example a 6000 x 6000 raster (36 million pixels) becomes 2000 x 2000 pixels, the
-resolution of a 90 mm map at 600 dpi.
+resolution of a 90 mm map at 600 dpi. The full script is on the
+[gallery page](gallery/large_raster.md).
 
 ## How rasters are reduced
 

@@ -29,6 +29,10 @@ FONT_CHAINS: dict[str, tuple[str, ...]] = {
 }
 _FAMILY_ALIASES = {"serif": "serif", "sans": "sans-serif", "sans-serif": "sans-serif"}
 LABEL_FORMATS = ("(a)", "a", "(A)", "A", "a)")
+#: Number of tick labels that tidy_axes and the recipes aim for when no limit is set.
+MAX_TICKS = 5
+#: Round steps for tick values (1, 2, 2.5 and 5 times a power of ten).
+TICK_STEPS = (1, 2, 2.5, 5, 10)
 
 _DEFAULT_STATE: dict[str, Any] = {
     "journal": "custom",
@@ -36,6 +40,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "label_bold": True,
     "font": None,
     "font_family": "sans-serif",
+    "max_ticks": None,
 }
 _STATE: dict[str, Any] = dict(_DEFAULT_STATE)
 _ORIGINAL_RC: dict[str, Any] | None = None
@@ -76,6 +81,7 @@ def set_style(
     base_size: float | None = None,
     labels: str | None = "(a)",
     label_bold: bool = True,
+    max_ticks: int | None = None,
 ) -> None:
     """Apply a journal style to matplotlib.
 
@@ -104,11 +110,16 @@ def set_style(
         ``None`` for no labels.
     label_bold : bool, default True
         Bold panel labels.
+    max_ticks : int, optional
+        A house rule for the largest number of tick labels per axis (for example 5).
+        When set, :func:`check_figure` warns about axes with more tick labels, and
+        :func:`tidy_axes` and the recipes use this number. ``None`` (default): no tick
+        check; recipes still draw a few ticks at round values.
 
     Raises
     ------
     ValueError
-        For an unknown journal or label format.
+        For an unknown journal or label format, or ``max_ticks`` below 2.
 
     Examples
     --------
@@ -126,6 +137,8 @@ def set_style(
     preset = get_journal(journal)
     if labels is not None and labels not in LABEL_FORMATS:
         raise ValueError(f"labels must be one of {LABEL_FORMATS} or None (got {labels!r}).")
+    if max_ticks is not None and max_ticks < 2:
+        raise ValueError(f"max_ticks must be at least 2 or None (got {max_ticks}).")
     if _ORIGINAL_RC is None:
         _ORIGINAL_RC = {k: v for k, v in mpl.rcParams.items() if not k.startswith("backend")}
 
@@ -152,6 +165,7 @@ def set_style(
             "legend.frameon": False,
             "mathtext.fontset": "stix" if family == "serif" else "dejavusans",
             "mathtext.default": "regular",
+            "axes.unicode_minus": True,
             "axes.prop_cycle": cycler(color=list(OKABE_ITO)),
             "image.cmap": "cmc.batlow",
             "text.color": TEXT_COLOUR,
@@ -183,7 +197,12 @@ def set_style(
         }
     )
     _STATE.update(
-        journal=preset.key, labels=labels, label_bold=label_bold, font=name, font_family=family
+        journal=preset.key,
+        labels=labels,
+        label_bold=label_bold,
+        font=name,
+        font_family=family,
+        max_ticks=max_ticks,
     )
 
 
@@ -212,6 +231,11 @@ def style(journal: str = "elsevier", **kwargs: Any) -> Iterator[None]:
 def current_journal() -> str:
     """Name of the journal preset set by :func:`set_style` (``"custom"`` if none)."""
     return str(_STATE["journal"])
+
+
+def current_max_ticks() -> int | None:
+    """Tick limit set by :func:`set_style` (``None`` if no house rule is set)."""
+    return _STATE.get("max_ticks")
 
 
 def new_figure(
@@ -277,6 +301,7 @@ def new_figure(
         nrows, ncols, figsize=(width_mm / MM_PER_INCH, height_mm / MM_PER_INCH), **kwargs
     )
     fig._eofigs_journal = preset.key  # type: ignore[attr-defined]
+    fig._eofigs_max_ticks = _STATE.get("max_ticks")  # type: ignore[attr-defined]
     return fig, axes
 
 
@@ -358,3 +383,83 @@ def label_panels(
         artist.set_fontsize(size)
         artists.append(artist)
     return artists
+
+
+def tidy_axes(*items: Any, max_ticks: int | None = None) -> None:
+    """Limit axes and colour bars to a few ticks at round values.
+
+    Every eofigs recipe calls this; call it on your own plots for the same look. Only
+    automatically placed ticks are changed: ticks set explicitly (``ax.set_xticks``),
+    log axes and map axes (cartopy GeoAxes, which use graticules) are left as they are.
+
+    Parameters
+    ----------
+    *items : Axes, Colorbar or sequence of them
+        Axes (or an array of axes from :func:`new_figure`) and colour bars.
+    max_ticks : int, optional
+        Largest number of tick labels per axis. Defaults to the ``max_ticks`` set with
+        :func:`set_style`, or 5.
+
+    Raises
+    ------
+    ValueError
+        If ``max_ticks`` is smaller than 2.
+
+    Examples
+    --------
+    >>> import eofigs
+    >>> fig, ax = eofigs.new_figure("single")
+    >>> _ = ax.plot([0, 0.95], [-3.3, 7.1])
+    >>> eofigs.tidy_axes(ax)
+    >>> len(ax.get_yticks()) <= 5
+    True
+    """
+    from matplotlib.colorbar import Colorbar
+
+    if max_ticks is None:
+        max_ticks = current_max_ticks() or MAX_TICKS
+    if max_ticks < 2:
+        raise ValueError(f"max_ticks must be at least 2 (got {max_ticks}).")
+    for item in items:
+        if isinstance(item, Colorbar):
+            if _is_auto_locator(item.locator):
+                item.locator = _round_locator(max_ticks)
+                item.update_ticks()
+        elif isinstance(item, Axes):
+            if _is_map_axes(item):
+                continue
+            for axis in (item.xaxis, item.yaxis):
+                _tidy_axis(axis, max_ticks)
+        else:
+            tidy_axes(*np.ravel(np.asarray(item, dtype=object)), max_ticks=max_ticks)
+
+
+def _round_locator(max_ticks: int):
+    from matplotlib.ticker import MaxNLocator
+
+    return MaxNLocator(nbins=max_ticks - 1, steps=list(TICK_STEPS), min_n_ticks=2)
+
+
+def _is_auto_locator(locator) -> bool:
+    from matplotlib.ticker import AutoLocator, MaxNLocator
+
+    return type(locator) in (AutoLocator, MaxNLocator)
+
+
+def _is_map_axes(ax: Axes) -> bool:
+    return type(ax).__name__ == "GeoAxes" or hasattr(ax, "projection")
+
+
+def _tidy_axis(axis, max_ticks: int) -> None:
+    import matplotlib.dates as mdates
+
+    if axis.get_scale() != "linear":
+        return
+    locator = axis.get_major_locator()
+    if isinstance(locator, mdates.AutoDateLocator):
+        new = mdates.AutoDateLocator(maxticks=max_ticks, minticks=2)
+        axis.set_major_locator(new)
+        if isinstance(axis.get_major_formatter(), mdates.AutoDateFormatter):
+            axis.set_major_formatter(mdates.ConciseDateFormatter(new))
+    elif _is_auto_locator(locator):
+        axis.set_major_locator(_round_locator(max_ticks))

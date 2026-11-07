@@ -24,10 +24,15 @@ theme:
         icon: material/weather-sunny
         name: Switch to light mode
 
+hooks:
+  - docs/hooks/gallery.py
+
 nav:
   - Home: index.md
+  - Gallery: gallery/index.md
   - Installation: installation.md
   - Style and export: style-and-export.md
+  - Colours: colours.md
   - Journal presets: journals.md
   - Variables: variables.md
   - Large rasters: rasters.md
@@ -48,6 +53,12 @@ plugins:
 
 markdown_extensions:
   - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - tables
   - pymdownx.highlight
   - pymdownx.superfences

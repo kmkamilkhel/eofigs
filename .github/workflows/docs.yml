@@ -22,6 +22,12 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
+      - name: Install fonts (gallery figures render with Arial and Times New Roman)
+        run: |
+          echo "ttf-mscorefonts-installer msttcorefonts/accepted-mscorefonts-eula select true" | sudo debconf-set-selections
+          sudo apt-get update
+          sudo apt-get install -y ttf-mscorefonts-installer fonts-liberation fonts-texgyre fonts-croscore
+          fc-list | grep -Ei "arial|times new roman" | head -4
       - run: pip install ".[docs]"
       - run: mkdocs build --strict
       - if: github.event_name != 'pull_request'

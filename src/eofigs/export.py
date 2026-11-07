@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from contextlib import contextmanager
 from pathlib import Path
 
 import matplotlib as mpl
+from matplotlib.collections import Collection, QuadMesh
 from matplotlib.figure import Figure
 
 from eofigs._presets import check_art, get_journal
@@ -16,6 +18,9 @@ SUPPORTED_FORMATS = ("pdf", "png", "tiff", "tif", "eps", "svg", "jpg", "jpeg")
 _CHECKABLE = {"pdf", "png", "tiff", "tif", "jpg", "jpeg"}
 # Always embed TrueType (Type 42) fonts and keep SVG text as text, whatever the global settings.
 _EMBED_FONTS = {"pdf.fonttype": 42, "ps.fonttype": 42, "svg.fonttype": "none"}
+_VECTOR_FORMATS = {"pdf", "eps", "svg"}
+#: Collections with more elements than this are rasterised inside vector files.
+DENSE_ELEMENTS = 2000
 
 
 def save_figure(
@@ -27,12 +32,15 @@ def save_figure(
     check: bool = True,
     journal: str | None = None,
     art: str = "combination",
+    rasterize_dense: bool = True,
 ) -> CheckReport | None:
     """Save a figure in one or more formats at its exact printed size.
 
     The figure is never trimmed (no ``bbox_inches="tight"``), so the saved size is the
     size set with :func:`eofigs.new_figure`. PDFs embed TrueType fonts and carry no
-    creation date, so the same figure always gives the same file.
+    creation date, so the same figure always gives the same file. In vector files
+    (PDF, EPS, SVG), dense layers are rasterised at the output resolution while text,
+    axes and lines stay vector, which keeps files small and fast to open.
 
     Parameters
     ----------
@@ -59,6 +67,10 @@ def save_figure(
         Artwork type. Line art (plots without images) needs more resolution in raster
         files: for example 1000 dpi for Elsevier and 1200 dpi for Springer and Taylor &
         Francis. Vector PDF output is not affected.
+    rasterize_dense : bool, default True
+        In vector files, rasterise mesh plots (``pcolormesh``) and collections with more
+        than 2 000 elements (dense scatter plots, many polygons). Images are always
+        raster. The artists are restored after saving.
 
     Returns
     -------
@@ -103,7 +115,9 @@ def save_figure(
     with mpl.rc_context(_EMBED_FONTS):
         for fmt in chosen:
             out = base.parent / f"{base.name}.{fmt}"
-            fig.savefig(out, format=_mpl_format(fmt), dpi=out_dpi, **_format_options(fmt))
+            dense = rasterize_dense and fmt in _VECTOR_FORMATS
+            with _rasterized(fig, dense):
+                fig.savefig(out, format=_mpl_format(fmt), dpi=out_dpi, **_format_options(fmt))
             written.append(out)
 
     if not check:
@@ -113,6 +127,36 @@ def save_figure(
         if out.suffix.lower().lstrip(".") in _CHECKABLE:
             report.results.extend(check_figure(out, journal=preset.key, art=art).results)
     return report
+
+
+def dense_artists(fig: Figure) -> list[Collection]:
+    """Mesh plots and collections with more than ``DENSE_ELEMENTS`` elements."""
+    found = []
+    for ax in fig.axes:
+        for coll in ax.collections:
+            if isinstance(coll, QuadMesh) or _n_elements(coll) > DENSE_ELEMENTS:
+                found.append(coll)
+    return found
+
+
+def _n_elements(coll: Collection) -> int:
+    offsets = coll.get_offsets()
+    return max(len(coll.get_paths()), 0 if offsets is None else len(offsets))
+
+
+@contextmanager
+def _rasterized(fig: Figure, enabled: bool):
+    if not enabled:
+        yield
+        return
+    changed = [a for a in dense_artists(fig) if not a.get_rasterized()]
+    for artist in changed:
+        artist.set_rasterized(True)
+    try:
+        yield
+    finally:
+        for artist in changed:
+            artist.set_rasterized(False)
 
 
 def _mpl_format(fmt: str) -> str:

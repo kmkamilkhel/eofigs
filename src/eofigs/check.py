@@ -18,6 +18,7 @@ from matplotlib.figure import Figure
 from matplotlib.text import Text
 
 from eofigs._colour import (
+    TEXT_COLOUR,
     classify_cmap,
     cmap_lightness,
     delta_e2000,
@@ -26,9 +27,10 @@ from eofigs._colour import (
     multi_sequential_ok,
     simulate_cvd,
     to_lab,
+    to_srgb,
 )
 from eofigs._presets import MM_PER_INCH, Journal, check_art, get_journal
-from eofigs.styling import current_journal
+from eofigs.styling import current_journal, current_max_ticks
 
 Status = Literal["pass", "warn", "fail"]
 
@@ -97,7 +99,9 @@ def check_figure(
     """Check a figure, or an exported PDF/PNG/TIFF, against a journal preset.
 
     For a live figure the checks are: printed size, resolution, smallest font size,
-    fonts in use, colour-blind safety of categorical colours, and colour maps. For
+    fonts in use, colour-blind safety of categorical colours, colour maps, and, when a
+    tick limit is set with ``set_style(max_ticks=...)``, the number of tick labels per
+    axis. For
     files: size and resolution (raster files), size and embedded fonts (PDF).
 
     Parameters
@@ -149,7 +153,10 @@ def check_figure(
     if isinstance(fig_or_path, Figure):
         key = journal or getattr(fig_or_path, "_eofigs_journal", None) or current_journal()
         preset = get_journal(key)
-        return CheckReport(preset.key, _check_live(fig_or_path, preset, dpi, check_art(art)))
+        max_ticks = getattr(fig_or_path, "_eofigs_max_ticks", None) or current_max_ticks()
+        return CheckReport(
+            preset.key, _check_live(fig_or_path, preset, dpi, check_art(art), max_ticks)
+        )
     check_art(art)
     path = Path(fig_or_path)
     preset = get_journal(journal or current_journal())
@@ -217,14 +224,16 @@ def _dpi_result(dpi: float, preset: Journal, target: str, art: str) -> CheckResu
 # ----------------------------------------------------------------------------- live figure
 
 
-def _check_live(fig: Figure, preset: Journal, dpi: float | None, art: str) -> list[CheckResult]:
+def _check_live(
+    fig: Figure, preset: Journal, dpi: float | None, art: str, max_ticks: int | None = None
+) -> list[CheckResult]:
     fig.draw_without_rendering()
     width_mm = fig.get_figwidth() * MM_PER_INCH
     height_mm = fig.get_figheight() * MM_PER_INCH
     if dpi is None:
         dpi = preset.export_dpi_for(art)  # what save_figure writes by default
     texts = [t for t in fig.findobj(Text) if t.get_visible() and t.get_text().strip()]
-    return [
+    results = [
         _size_result(width_mm, height_mm, preset, "figure"),
         _dpi_result(float(dpi), preset, "figure", art),
         _font_size_result(texts, preset),
@@ -232,6 +241,9 @@ def _check_live(fig: Figure, preset: Journal, dpi: float | None, art: str) -> li
         _categorical_result(fig),
         _cmap_result(fig),
     ]
+    if max_ticks is not None:
+        results.append(_tick_result(fig, max_ticks))
+    return results
 
 
 def _font_size_result(texts: list[Text], preset: Journal) -> CheckResult:
@@ -255,22 +267,67 @@ def _font_name(text: Text) -> str:
     return font_manager.get_font(path).family_name
 
 
+#: Free fonts with the same metrics as a commercial font: text keeps the same width and
+#: line breaks, so journals' typesetting accepts them in its place.
+METRIC_COMPATIBLE = {
+    "Liberation Sans": "Arial",
+    "Arimo": "Arial",
+    "TeX Gyre Heros": "Helvetica",
+    "Liberation Serif": "Times New Roman",
+    "Tinos": "Times New Roman",
+    "TeX Gyre Termes": "Times New Roman",
+    "Liberation Mono": "Courier",
+    "Cousine": "Courier",
+}
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[^a-z]", "", name.lower())
+
+
 def _accepted(name: str, accepted: tuple[str, ...]) -> bool:
-    norm = re.sub(r"[^a-z]", "", name.lower())
-    return any(re.sub(r"[^a-z]", "", a.lower()) in norm for a in accepted)
+    return any(_norm(a) in _norm(name) for a in accepted)
+
+
+def _substitute_for(name: str, accepted: tuple[str, ...]) -> str | None:
+    """Return the listed font that ``name`` is metric-compatible with, if any."""
+    for free, commercial in METRIC_COMPATIBLE.items():
+        if _norm(free) in _norm(name) and _accepted(commercial, accepted):
+            return commercial
+    return None
+
+
+def _font_list_result(names: list[str], preset: Journal, target: str, embedded: bool):
+    what = "Embedded fonts" if embedded else "Fonts in use"
+    if not preset.fonts:
+        return CheckResult("fonts", "pass", f"{what}: {', '.join(names)}.", target)
+    found = any if embedded else all  # a PDF also embeds fonts for symbols and mathtext
+    notes = []
+    ok = []
+    for name in names:
+        if _accepted(name, preset.fonts):
+            ok.append(True)
+            continue
+        commercial = _substitute_for(name, preset.fonts)
+        ok.append(commercial is not None)
+        if commercial is not None:
+            notes.append(f"{name} is metric-compatible with {commercial}")
+    if not found(ok):
+        return CheckResult(
+            "fonts",
+            "warn",
+            f"{what}: {', '.join(names)}; {preset.name} lists {', '.join(preset.fonts)}.",
+            target,
+        )
+    note = f" ({'; '.join(sorted(set(notes)))})" if notes else ""
+    return CheckResult("fonts", "pass", f"{what}: {', '.join(names)}{note}.", target)
 
 
 def _fonts_in_use_result(texts: list[Text], preset: Journal) -> CheckResult:
     names = sorted({_font_name(t) for t in texts})
     if not names:
         return CheckResult("fonts", "pass", "No text in the figure.")
-    if preset.fonts and not all(_accepted(n, preset.fonts) for n in names):
-        return CheckResult(
-            "fonts",
-            "warn",
-            f"Fonts in use: {', '.join(names)}; {preset.name} lists {', '.join(preset.fonts)}.",
-        )
-    return CheckResult("fonts", "pass", f"Fonts in use: {', '.join(names)}.")
+    return _font_list_result(names, preset, "figure", embedded=False)
 
 
 def _composite(rgba: tuple[float, float, float, float]) -> tuple[float, float, float]:
@@ -377,6 +434,180 @@ def _cmap_result(fig: Figure) -> CheckResult:
     return CheckResult("colour maps", "pass", f"Colour maps: {listed}.")
 
 
+def _tick_count(axis) -> int:
+    """Count the non-empty major tick labels shown inside the view interval."""
+    params = axis.get_tick_params(which="major")
+    sides = ("labelbottom", "labeltop") if axis.axis_name == "x" else ("labelleft", "labelright")
+    if not any(params.get(side, side in ("labelbottom", "labelleft")) for side in sides):
+        return 0
+    low, high = sorted(axis.get_view_interval())
+    span = (high - low) * 1e-9
+    locs = [v for v in axis.get_majorticklocs() if low - span <= v <= high + span]
+    if not locs:
+        return 0
+    labels = axis.get_major_formatter().format_ticks(locs)
+    return sum(1 for label in labels if str(label).strip())
+
+
+def _tick_result(fig: Figure, max_ticks: int) -> CheckResult:
+    crowded = []
+    for i, ax in enumerate(fig.axes, 1):
+        if not ax.get_visible() or not ax.axison:
+            continue
+        for axis in (ax.xaxis, ax.yaxis):
+            if axis.get_scale() != "linear":
+                continue
+            n = _tick_count(axis)
+            if n > max_ticks:
+                crowded.append(f"axes {i} {axis.axis_name} ({n})")
+    if crowded:
+        return CheckResult(
+            "ticks",
+            "warn",
+            f"More than {max_ticks} tick labels: {', '.join(crowded[:6])}. "
+            "eofigs.tidy_axes limits ticks to round values.",
+        )
+    return CheckResult("ticks", "pass", f"At most {max_ticks} tick labels per axis.")
+
+
+# ----------------------------------------------------------------------------- preview
+
+
+_PREVIEW_VIEWS = ("Normal", "Protan", "Deutan", "Tritan", "Greyscale")
+
+
+def cvd_preview(
+    fig_or_path: Figure | str | Path, out: str | Path | None = None, dpi: float = 150
+) -> Path:
+    """Write one image showing a figure as seen with colour-vision deficiencies.
+
+    The image has five panels: normal vision, protan, deutan and tritan simulations
+    (Machado et al. 2009, full severity, the same as :func:`check_figure`) and greyscale
+    (CIELAB lightness). Use it to confirm that every series, class and colour-map step
+    is still distinguishable, and that sequential data keep their order in greyscale.
+
+    Parameters
+    ----------
+    fig_or_path : matplotlib.figure.Figure or path
+        A figure, or a PNG, TIFF or JPEG file.
+    out : str or pathlib.Path, optional
+        Output PNG. Defaults to ``<name>_cvd.png`` next to an input file; required for a
+        figure.
+    dpi : float, default 150
+        Resolution at which a figure is rendered for the preview.
+
+    Returns
+    -------
+    pathlib.Path
+        The written PNG.
+
+    Raises
+    ------
+    ValueError
+        For a figure without ``out``, or an unsupported file type (render PDFs to PNG
+        first).
+    FileNotFoundError
+        If the input file does not exist.
+
+    Examples
+    --------
+    >>> import eofigs
+    >>> fig, ax = eofigs.new_figure("single")
+    >>> _ = ax.plot([0, 1], [0, 1])
+    >>> eofigs.cvd_preview(fig, "fig1_cvd.png")  # doctest: +SKIP
+    """
+    if out is None and isinstance(fig_or_path, Figure):
+        raise ValueError("Pass out= (the PNG to write) when previewing a figure.")
+    rgb = _preview_input(fig_or_path, dpi)
+    if out is None:
+        source = Path(fig_or_path)
+        out = source.with_name(f"{source.stem}_cvd.png")
+    out = Path(out)
+    views = [rgb, *(simulate_cvd(rgb, kind) for kind in ("protan", "deutan", "tritan"))]
+    grey = _lightness_to_grey(to_lab(rgb)[..., 0])
+    views.append(np.repeat(grey[..., None], 3, axis=-1))
+    _write_preview(views, out)
+    return out
+
+
+def _preview_input(fig_or_path: Figure | str | Path, dpi: float) -> np.ndarray:
+    from io import BytesIO
+
+    from PIL import Image
+
+    if isinstance(fig_or_path, Figure):
+        buffer = BytesIO()
+        fig_or_path.savefig(buffer, format="png", dpi=dpi, facecolor="white")
+        buffer.seek(0)
+        image = Image.open(buffer)
+    else:
+        path = Path(fig_or_path)
+        if path.suffix.lower() not in _RASTER_SUFFIXES:
+            raise ValueError(
+                f"Cannot preview {path.suffix!r} files; use PNG, TIFF or JPEG "
+                "(export a PNG with eofigs.save_figure first)."
+            )
+        if not path.exists():
+            raise FileNotFoundError(path)
+        image = Image.open(path)
+    with image:
+        rgba = np.asarray(image.convert("RGBA"), dtype=float) / 255
+    alpha = rgba[..., 3:]
+    return rgba[..., :3] * alpha + (1 - alpha)  # flatten transparency onto white
+
+
+def _lightness_to_grey(lightness: np.ndarray) -> np.ndarray:
+    """Return the sRGB grey value that has the given CIELAB lightness."""
+    f = (lightness + 16) / 116
+    luminance = np.where(lightness > 8, f**3, lightness / (24389 / 27))
+    return to_srgb(luminance)
+
+
+def _preview_columns(width: int, height: int, n: int = len(_PREVIEW_VIEWS)) -> int:
+    """Choose the number of columns that brings the whole preview closest to 16:9."""
+
+    def distance(ncols: int) -> float:
+        nrows = -(-n // ncols)
+        empty = nrows * ncols - n  # empty cells waste space
+        return abs(np.log(ncols * width / (nrows * height) / (16 / 9))) + 0.2 * empty
+
+    return min(range(1, n + 1), key=distance)
+
+
+def _write_preview(views: list[np.ndarray], out: Path) -> None:
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    height, width = views[0].shape[:2]
+    ncols = _preview_columns(width, height)
+    nrows = -(-len(views) // ncols)
+    gap = max(8, min(width, height) // 40)
+    header = max(30, round(0.06 * max(width, height) / max(ncols, 2)))
+    cell_w, cell_h = width + gap, height + header + gap
+    total_w, total_h = ncols * cell_w - gap, nrows * cell_h - gap
+    preview = Figure(figsize=(total_w / 100, total_h / 100), dpi=100, facecolor="white")
+    FigureCanvasAgg(preview)
+    for i, (view, title) in enumerate(zip(views, _PREVIEW_VIEWS, strict=True)):
+        row, col = divmod(i, ncols)
+        left = col * cell_w / total_w
+        top = 1 - row * cell_h / total_h
+        bottom = top - (header + height) / total_h
+        ax = preview.add_axes((left, bottom, width / total_w, height / total_h))
+        ax.imshow(np.clip(view, 0, 1), interpolation="nearest")
+        ax.set_axis_off()
+        preview.text(
+            left + width / total_w / 2,
+            top - header / total_h / 2,
+            title,
+            ha="center",
+            va="center",
+            fontsize=header * 0.55 * 72 / 100,
+            fontweight="bold",
+            color=TEXT_COLOUR,
+        )
+    out.parent.mkdir(parents=True, exist_ok=True)
+    preview.savefig(out, dpi=100, facecolor="white")
+
+
 # ----------------------------------------------------------------------------- files
 
 
@@ -434,16 +665,6 @@ def _check_pdf(path: Path, preset: Journal) -> list[CheckResult]:
                 target,
             )
         )
-    elif preset.fonts and not any(_accepted(n, preset.fonts) for n in names):
-        results.append(
-            CheckResult(
-                "fonts",
-                "warn",
-                f"Embedded fonts {', '.join(names)}; "
-                f"{preset.name} lists {', '.join(preset.fonts)}.",
-                target,
-            )
-        )
     else:
-        results.append(CheckResult("fonts", "pass", f"Embedded fonts: {', '.join(names)}.", target))
+        results.append(_font_list_result(names, preset, target, embedded=True))
     return results

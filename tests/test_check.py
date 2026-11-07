@@ -25,7 +25,8 @@ def test_clean_figure_passes(sans_font):
     ax.plot([0, 1], [1, 0], color="#E69F00")
     report = eofigs.check_figure(fig)
     assert report.passed, str(report)
-    assert report.warnings == []
+    assert report.warnings == [], str(report)  # no tick rule unless set_style(max_ticks=...)
+    assert "ticks" not in {r.name for r in report.results}
     assert "single width" in _result(report, "size").message
 
 
