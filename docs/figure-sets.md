@@ -17,7 +17,10 @@ figs.order(["ndvi_trend", "study_area", "scatter"])  # renumbers and renames the
 ```
 
 - Files are named `Fig01_<name>` and `FigS01_<name>` in the journal's formats; reordering
-  renames them, and adding a name again replaces that figure under the same number.
+  renames them.
+- Adding a name again **replaces** that figure under the same number, so the folder never
+  keeps an outdated figure after the analysis changes. Use `exists()` (below) to skip
+  figures on purpose.
 - `figures_manifest.csv` lists every figure: label (`Fig. 1`, `Fig. S1`), files, printed size
   in mm, resolution, artwork type, check result with any problems, and caption. It is
   rewritten after every change.

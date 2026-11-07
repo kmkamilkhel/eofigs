@@ -34,7 +34,8 @@ uses [Semantic Versioning](https://semver.org/).
   exactly by eofigs).
 - `trend`: Theil–Sen slope and Mann–Kendall test (tie- and continuity-corrected) per pixel,
   against real dates, with `min_valid`, a memory budget for any series length, and dask
-  support; compared with `scipy.stats.theilslopes` in the tests.
+  support; compared with `scipy.stats.theilslopes` in the tests. The slope is labelled as a
+  trend of the input variable, and the intercept records its `reference_time`.
 - `figure_set` and `FigureSet`: manuscript figures saved as `Fig01_<name>` / `FigS01_<name>`
   in the journal's formats, reordering with file renaming, and `figures_manifest.csv` with
   sizes, resolution, check results and captions; resumes from the manifest.

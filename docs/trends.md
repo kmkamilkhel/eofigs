@@ -22,13 +22,16 @@ where the Mann–Kendall test gives p < 0.05.
 | Variable | Meaning |
 |---|---|
 | `slope` | median of all pairwise slopes, in data units per `per` (`"decade"` or `"year"`) |
-| `intercept` | median of `y - slope * t`, the value at the first time step |
+| `intercept` | median of `y - slope * t`: the value at the first date, stored in its `reference_time` attribute |
 | `pvalue` | two-sided Mann–Kendall p-value |
 | `significant` | `pvalue < alpha` (default 0.05) |
 | `n_valid` | number of valid observations |
 
 Pixels with fewer than `min_valid` observations (default 8) are NaN. Spatial coordinates
-and the CRS are kept, so the result plots directly as a map.
+and the CRS are kept, so the result plots directly as a map. The slope is labelled as a trend
+of the input variable (for NDVI: "Normalized Difference Vegetation Index trend",
+decade$^{-1}$), so `eofigs.variable(result.slope)` returns the variable's trend with
+zero-centred colours.
 
 ## Method and assumptions
 
@@ -55,7 +58,8 @@ so any series length works. The work grows with the number of pairs, n(n−1)/2,
 
 Peak memory stayed near 400 MB for every size. For large cubes pass a dask-backed array
 (for example `cube.chunk({"x": 500, "y": 500})`); the blocks then run in parallel. Annual
-series are much faster: 25 steps have 300 pairs instead of 44 850.
+series are much faster: 25 steps have 300 pairs instead of 44 850. For long monthly series,
+consider aggregating to annual values now; a seasonal Mann–Kendall test is planned for v0.2.
 
 ## References
 

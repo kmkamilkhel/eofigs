@@ -5,6 +5,7 @@ import rioxarray  # noqa: F401
 import xarray as xr
 from scipy import stats as sps
 
+import eofigs
 from eofigs import trend
 
 YEARS = pd.date_range("2001-01-01", periods=20, freq="YS")
@@ -60,7 +61,7 @@ def test_exact_linear_trend_per_decade_and_significance():
     np.testing.assert_allclose(result.intercept.values, 0.3)
     assert result.significant.all()
     assert (result.n_valid == 20).all()
-    assert result.slope.attrs["units"] == "1 per decade"
+    assert result.slope.attrs["units"] == "decade$^{-1}$"
     assert result.attrs["autocorrelation"] == "not corrected"
 
 
@@ -163,3 +164,39 @@ def test_time_must_be_datetime_and_unique():
     )
     with pytest.raises(ValueError, match="duplicate dates"):
         trend(dup, min_valid=3)
+
+
+def test_slope_is_a_trend_not_the_source_variable():
+    da = _cube(np.random.default_rng(6).random((20, 2, 2)))
+    da.attrs["standard_name"] = "normalized_difference_vegetation_index"
+    result = trend(da, per="decade")
+    assert "standard_name" not in result.slope.attrs
+    assert "standard_name" not in result.intercept.attrs
+    assert result.slope.attrs["long_name"] == "Normalized Difference Vegetation Index trend"
+    assert result.slope.attrs["units"] == "decade$^{-1}$"
+    assert result.slope.attrs["source_variable"] == "ndvi"
+    assert eofigs.variable(result.slope) == eofigs.variable("ndvi").trend(per="decade")
+    assert eofigs.variable(result.slope).kind == "diverging"
+    assert result.intercept.attrs["reference_time"] == "2001-01-01"
+    assert result.intercept.attrs["units"] == "1"
+    assert result.n_valid.dtype == np.int32
+
+
+def test_trend_units_follow_the_data():
+    da = _cube(np.random.default_rng(7).random((20, 1, 1)) + 290).rename("lst")
+    da.attrs = {"units": "K"}
+    result = trend(da, per="year")
+    assert result.slope.attrs["units"] == "K yr$^{-1}$"
+    var = eofigs.variable(result.slope)
+    assert var.units == "K yr$^{-1}$" and var.cmap == "cmc.vik"
+
+
+def test_unknown_variable_gets_generic_trend_labels():
+    da = _cube(np.random.default_rng(8).random((20, 1, 1))).rename("band_1")
+    da.attrs = {"units": "mm d-1", "long_name": "Water index"}
+    result = trend(da)
+    assert result.slope.attrs["long_name"] == "Water index trend"
+    assert result.slope.attrs["units"] == "mm d$^{-1}$ decade$^{-1}$"
+    unnamed = trend(xr.DataArray(np.arange(10.0), dims="time", coords={"time": YEARS[:10]}))
+    assert unnamed.slope.attrs["long_name"] == "Value trend"
+    assert unnamed.slope.attrs["units"] == "decade$^{-1}$"

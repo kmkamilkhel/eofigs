@@ -223,6 +223,14 @@ def _unknown_message(text: str) -> str:
 
 def _from_dataarray(da: Any) -> Variable:
     attrs = da.attrs
+    if attrs.get("eofigs_derived") == "trend" and attrs.get("source_variable"):
+        base = _find(str(attrs["source_variable"]))
+        if base is not None:
+            derived = base.trend(str(attrs.get("per", "decade")))
+            units = attrs.get("units")
+            if units and _norm(units) != _norm(derived.units):
+                return replace(derived, units=units)
+            return derived
     candidates = [attrs.get("standard_name"), attrs.get("long_name"), da.name]
     for candidate in candidates:
         if candidate:

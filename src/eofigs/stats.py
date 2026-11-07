@@ -41,9 +41,12 @@ def trend(
     Returns
     -------
     xarray.Dataset
-        ``slope`` (data units per ``per``), ``intercept`` (value at the first time
-        step), ``pvalue`` (two-sided Mann–Kendall), ``significant`` (``pvalue < alpha``)
-        and ``n_valid``. Spatial coordinates and CRS are kept.
+        ``slope`` (data units per ``per``), ``intercept`` (value at the first date,
+        stored as ``reference_time``), ``pvalue`` (two-sided Mann–Kendall),
+        ``significant`` (``pvalue < alpha``) and ``n_valid`` (int32). Spatial coordinates
+        and CRS are kept. ``slope`` is labelled as a trend of the input variable (no
+        ``standard_name``), so ``eofigs.variable(result.slope)`` returns the variable's
+        trend with zero-centred colours.
 
     Raises
     ------
@@ -103,31 +106,66 @@ def trend(
         dask="parallelized",
         output_dtypes=[float, float, float, float],
     )
-    scale = _PER_YEARS[per]
-    units = data.attrs.get("units", "")
+    first_date = str(data[dim].values[0])[:10]
+    slope_attrs, source_name, label = _slope_attrs(data, per)
+    source_units = data.attrs.get("units", "")
     out = xr.Dataset(
         {
-            "slope": (slope * scale).assign_attrs(
-                long_name="Theil-Sen slope", units=f"{units} per {per}".strip(), per=per
+            "slope": _with_attrs(slope * _PER_YEARS[per], slope_attrs),
+            "intercept": _with_attrs(
+                intercept,
+                {
+                    "long_name": f"{label} at the reference time (Theil-Sen intercept)",
+                    "units": source_units,
+                    "reference_time": first_date,
+                },
             ),
-            "intercept": intercept.assign_attrs(
-                long_name="Theil-Sen intercept at the first time step", units=units
+            "pvalue": _with_attrs(pvalue, {"long_name": "Mann-Kendall p-value (two-sided)"}),
+            "significant": _with_attrs(pvalue < alpha, {"long_name": f"p < {alpha}"}),
+            "n_valid": _with_attrs(
+                n_valid.astype("int32"), {"long_name": "Number of valid observations"}
             ),
-            "pvalue": pvalue.assign_attrs(long_name="Mann-Kendall p-value (two-sided)"),
-            "significant": (pvalue < alpha).assign_attrs(long_name=f"p < {alpha}"),
-            "n_valid": n_valid.assign_attrs(long_name="Number of valid observations"),
         },
         attrs={
             "method": "Theil-Sen slope, Mann-Kendall test (tie and continuity corrected)",
             "autocorrelation": "not corrected",
             "alpha": alpha,
             "min_valid": min_valid,
-            "time_start": str(data[dim].values[0])[:10],
+            "time_start": first_date,
             "time_end": str(data[dim].values[-1])[:10],
-            "source_variable": str(data.name) if data.name is not None else "",
+            "source_variable": source_name,
         },
     )
     return out
+
+
+def _with_attrs(da: xr.DataArray, attrs: dict) -> xr.DataArray:
+    """Replace all attributes, so nothing (such as standard_name) leaks from the input."""
+    da = da.copy()
+    da.attrs = dict(attrs)
+    return da
+
+
+def _slope_attrs(data: xr.DataArray, per: str) -> tuple[dict, str, str]:
+    """Attributes that mark the slope as a trend of its source variable."""
+    from eofigs.variables import PER_UNITS, cf_units_to_mathtext, variable
+
+    try:
+        source = variable(data)
+    except ValueError:
+        source = None
+    if source is not None:
+        derived = source.trend(per)
+        attrs = {"long_name": derived.long_name, "units": derived.units}
+        source_name, label = source.name, source.long_name
+    else:
+        label = str(data.attrs.get("long_name") or data.name or "Value")
+        units = cf_units_to_mathtext(str(data.attrs.get("units", "")))
+        time_unit = f"{PER_UNITS[per]}$^{{-1}}$"
+        attrs = {"long_name": f"{label} trend", "units": f"{units} {time_unit}".strip()}
+        source_name = str(data.name) if data.name is not None else ""
+    attrs.update(source_variable=source_name, eofigs_derived="trend", per=per)
+    return attrs, source_name, label
 
 
 def _trend_block_array(
