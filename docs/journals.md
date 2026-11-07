@@ -20,8 +20,10 @@ Notes:
   small-format journals use 119 mm and at most 195 mm height.
 - **Wiley**: figures between 80 and 180 mm wide; individual Wiley journals set their own column widths.
 - **MDPI** and **Taylor & Francis** state no figure widths; Taylor & Francis refers to each journal's page.
-- eofigs exports at 600 dpi for every preset, which meets or exceeds each publisher's
-  requirement for figures that combine text and images.
+- eofigs exports raster files at 600 dpi for every preset, which meets or exceeds each
+  publisher's requirement for figures that combine text and images. For line art
+  (`art="line"`) it uses the publisher's line-art resolution when that is higher
+  (1000 dpi for Elsevier, 1200 dpi for Springer and Taylor & Francis).
 - `taylor_francis` also accepts `"tandf"` and `"t&f"`; `springer` accepts `"springer_nature"`.
 
 The presets live in `eofigs/data/journals.json`, which the R version of eofigs will share.
