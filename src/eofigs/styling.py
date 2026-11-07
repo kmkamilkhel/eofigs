@@ -196,7 +196,7 @@ def style(journal: str = "elsevier", **kwargs: Any) -> Iterator[None]:
     Examples
     --------
     >>> import eofigs
-    >>> with eofigs.style("frontiers"):
+    >>> with eofigs.style("frontiers", font="DejaVu Sans"):
     ...     fig, ax = eofigs.new_figure("single")
     """
     saved_state = dict(_STATE)
