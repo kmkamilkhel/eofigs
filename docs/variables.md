@@ -50,14 +50,14 @@ session. A `Variable` object can also be passed directly wherever a variable nam
 ## Bundled variables
 
 Colour maps follow perceptually uniform cmcrameri maps: `bamako_r` for vegetation, `davos_r`
-for water, `lajolla` for temperature and burn severity, `batlow` for terrain.
+for water, `lajolla` for temperature (bright = hot) and `lajolla_r` for burn severity (dark = severe), `batlow` for terrain.
 
 | Name | Long name | Symbol | Units | Colour map | Anomaly and trend map | Default range |
 |---|---|---|---|---|---|---|
 | `agb` | Aboveground biomass | AGB | Mg ha<sup>-1</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 400 |
 | `air_temperature` | Air temperature | T<sub>a</sub> | °C | `cmc.lajolla` | `cmc.vik` | from data |
 | `canopy_height` | Canopy height | h | m | `cmc.bamako_r` | `cmc.vik_r` | 0 to 50 |
-| `dnbr` | Differenced Normalized Burn Ratio | dNBR | – | `cmc.lajolla` | `cmc.vik` | -0.25 to 1 |
+| `dnbr` | Differenced Normalized Burn Ratio | dNBR | – | `cmc.lajolla_r` | `cmc.vik` | -0.25 to 1 |
 | `elevation` | Elevation | z | m | `cmc.batlow` | `cmc.vik` | from data |
 | `evapotranspiration` | Evapotranspiration | ET | mm d<sup>-1</sup> | `cmc.davos_r` | `cmc.vik_r` | 0 to data |
 | `evi` | Enhanced Vegetation Index | EVI | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1 |

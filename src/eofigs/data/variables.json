@@ -258,7 +258,7 @@
       "long_name": "Differenced Normalized Burn Ratio",
       "symbol": "dNBR",
       "units": "",
-      "cmap": "cmc.lajolla",
+      "cmap": "cmc.lajolla_r",
       "anomaly_cmap": "cmc.vik",
       "kind": "continuous",
       "vmin": -0.25,

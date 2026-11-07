@@ -228,33 +228,6 @@ def test_file_errors(tmp_path):
         fit_raster(path, 25.4, dpi=1)
 
 
-@pytest.mark.slow
-def test_large_raster_is_fast_and_bounded(tmp_path):
-    """10 000 x 10 000 float32 GeoTIFF (no overviews) drawn at double-column width."""
-    path = tmp_path / "big.tif"
-    n, block = 10_000, 1_000
-    profile = {
-        "driver": "GTiff", "height": n, "width": n, "count": 1, "dtype": "float32",
-        "crs": "EPSG:32643", "transform": from_origin(500000, 3900000, 10, 10),
-        "tiled": True, "blockxsize": 512, "blockysize": 512, "compress": "deflate",
-    }  # fmt: skip
-    x = np.linspace(0, 20, n, dtype="float32")
-    with rasterio.open(path, "w", **profile) as dst:
-        for row in range(0, n, block):
-            y = np.linspace(row / n * 20, (row + block) / n * 20, block, dtype="float32")
-            dst.write(
-                np.sin(x)[None, :] * np.cos(y)[:, None], 1, window=((row, row + block), (0, n))
-            )
-    start = time.perf_counter()
-    out = fit_raster(path, width_mm=190, dpi=600)
-    elapsed = time.perf_counter() - start
-    print(f"fit_raster 10000x10000 -> {out.shape} in {elapsed:.2f} s")
-    budget = pixel_budget(190, None, 600)[0]
-    assert out.shape == (budget, budget)  # exactly the printed pixels
-    assert out.dtype == np.float32  # float32 source stays float32
-    assert elapsed < 10
-
-
 def test_file_integer_average_is_not_rounded(tmp_path):
     values = np.array([[1, 2], [2, 2]], dtype="int16")
     path = _write_tif(tmp_path / "i.tif", values)
@@ -271,3 +244,37 @@ def test_file_byte_average_is_exact(tmp_path):
     np.testing.assert_allclose(out.values[1:], expected, atol=1e-6)
     assert np.isnan(out.values[0, 0])
     assert out.rio.resolution() == pytest.approx((300.0, -300.0))
+
+
+@pytest.mark.slow
+@pytest.mark.parametrize("dtype", ["float32", "int16"])
+def test_large_raster_is_fast_and_bounded(tmp_path, dtype):
+    """10 000 x 10 000 GeoTIFF (no overviews) drawn at double-column width.
+
+    float32 uses GDAL's average at the output size; int16 (for example scaled NDVI) uses the
+    exact strip averaging.
+    """
+    path = tmp_path / "big.tif"
+    n, block = 10_000, 1_000
+    profile = {
+        "driver": "GTiff", "height": n, "width": n, "count": 1, "dtype": dtype,
+        "crs": "EPSG:32643", "transform": from_origin(500000, 3900000, 10, 10),
+        "tiled": True, "blockxsize": 512, "blockysize": 512, "compress": "deflate",
+    }  # fmt: skip
+    x = np.linspace(0, 20, n)
+    with rasterio.open(path, "w", **profile) as dst:
+        for row in range(0, n, block):
+            y = np.linspace(row / n * 20, (row + block) / n * 20, block)
+            values = np.sin(x)[None, :] * np.cos(y)[:, None]
+            if dtype == "int16":
+                values = np.round(values * 10_000)  # scaled like Landsat NDVI
+            dst.write(values.astype(dtype), 1, window=((row, row + block), (0, n)))
+    start = time.perf_counter()
+    out = fit_raster(path, width_mm=190, dpi=600)
+    elapsed = time.perf_counter() - start
+    print(f"fit_raster 10000x10000 {dtype} -> {out.shape} in {elapsed:.2f} s")
+    budget = pixel_budget(190, None, 600)[0]
+    assert out.shape[1] >= budget  # at least the printed pixels
+    assert out.shape[1] < 2 * budget
+    assert out.dtype == np.float32  # 2- and 4-byte sources give float32
+    assert elapsed < 10

@@ -9,14 +9,6 @@ from eofigs._colour import classify_cmap
 from eofigs.variables import Variable, cf_units_to_mathtext, variable_names
 
 
-@pytest.fixture(autouse=True)
-def _clean_registry():
-    saved = dict(variables_module._REGISTERED)
-    yield
-    variables_module._REGISTERED.clear()
-    variables_module._REGISTERED.update(saved)
-
-
 @pytest.mark.parametrize("name", variable_names())
 def test_every_bundled_variable_is_consistent(name):
     var = eofigs.variable(name)
@@ -154,3 +146,14 @@ def test_register_variable():
 def test_invalid_fields(fields, message):
     with pytest.raises(ValueError, match=message):
         Variable(name="x", long_name="X", symbol="X", **fields)
+
+
+def test_registry_is_reset_between_tests():
+    # the register_variable docstring example and other tests must not leak into this one
+    assert variables_module._REGISTERED == {}
+
+
+def test_variable_object_works_without_registering():
+    own = Variable(name="cci", long_name="Chlorophyll carotenoid index", symbol="CCI")
+    assert eofigs.variable(own) is own
+    assert "cci" not in variable_names()
