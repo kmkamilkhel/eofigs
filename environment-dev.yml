@@ -1,0 +1,29 @@
+name: eofigs-dev
+channels:
+  - conda-forge
+dependencies:
+  - python=3.13
+  - numpy
+  - pandas
+  - xarray
+  - scipy
+  - matplotlib-base>=3.9
+  - cartopy
+  - cmcrameri
+  - matplotlib-scalebar
+  - rioxarray
+  - geopandas
+  - shapely
+  - pyproj
+  - dask
+  - tqdm
+  - pytest
+  - pytest-cov
+  - pytest-mpl
+  - ruff
+  - pre-commit
+  - python-build
+  - hatchling
+  - mkdocs-material
+  - mkdocstrings-python
+  - pip
