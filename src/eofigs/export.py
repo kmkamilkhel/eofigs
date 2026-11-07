@@ -8,7 +8,7 @@ from pathlib import Path
 import matplotlib as mpl
 from matplotlib.figure import Figure
 
-from eofigs._presets import get_journal
+from eofigs._presets import check_art, get_journal
 from eofigs.check import CheckReport, check_figure
 from eofigs.styling import current_journal
 
@@ -26,6 +26,7 @@ def save_figure(
     size_px: int | tuple[int, int] | None = None,
     check: bool = True,
     journal: str | None = None,
+    art: str = "combination",
 ) -> CheckReport | None:
     """Save a figure in one or more formats at its exact printed size.
 
@@ -45,7 +46,8 @@ def save_figure(
         Formats such as ``("pdf", "png", "tiff")``. Defaults to the journal preset
         (for example PDF + TIFF for Elsevier, PDF + PNG for ``"custom"``).
     dpi : float, optional
-        Resolution of raster outputs; defaults to the preset's export resolution (600).
+        Resolution of raster outputs; defaults to the preset's export resolution (600)
+        or the resolution the journal requires for ``art``, whichever is higher.
     size_px : int or (int, int), optional
         Exact pixel width (or width and height) of raster outputs; sets the dpi.
     check : bool, default True
@@ -53,6 +55,10 @@ def save_figure(
         TIFF or JPEG file.
     journal : str, optional
         Journal preset; defaults to the one used to create the figure.
+    art : {"combination", "line", "halftone"}, default "combination"
+        Artwork type. Line art (plots without images) needs more resolution in raster
+        files: for example 1000 dpi for Elsevier and 1200 dpi for Springer and Taylor &
+        Francis. Vector PDF output is not affected.
 
     Returns
     -------
@@ -87,7 +93,8 @@ def save_figure(
     if unknown:
         raise ValueError(f"Unsupported format(s) {unknown}; use {SUPPORTED_FORMATS}.")
 
-    out_dpi = float(dpi) if dpi is not None else float(preset.export_dpi)
+    check_art(art)
+    out_dpi = float(dpi) if dpi is not None else float(preset.export_dpi_for(art))
     if size_px is not None:
         out_dpi = _dpi_for_pixels(fig, size_px)
 
@@ -101,10 +108,10 @@ def save_figure(
 
     if not check:
         return None
-    report = check_figure(fig, journal=preset.key, dpi=out_dpi)
+    report = check_figure(fig, journal=preset.key, dpi=out_dpi, art=art)
     for out in written:
         if out.suffix.lower().lstrip(".") in _CHECKABLE:
-            report.results.extend(check_figure(out, journal=preset.key).results)
+            report.results.extend(check_figure(out, journal=preset.key, art=art).results)
     return report
 
 

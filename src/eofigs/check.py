@@ -27,7 +27,7 @@ from eofigs._colour import (
     simulate_cvd,
     to_lab,
 )
-from eofigs._presets import MM_PER_INCH, Journal, get_journal
+from eofigs._presets import MM_PER_INCH, Journal, check_art, get_journal
 from eofigs.styling import current_journal
 
 Status = Literal["pass", "warn", "fail"]
@@ -92,6 +92,7 @@ def check_figure(
     fig_or_path: Figure | str | Path,
     journal: str | None = None,
     dpi: float | None = None,
+    art: str = "combination",
 ) -> CheckReport:
     """Check a figure, or an exported PDF/PNG/TIFF, against a journal preset.
 
@@ -107,8 +108,12 @@ def check_figure(
         Journal preset; defaults to the one used to create the figure, or the one set by
         :func:`eofigs.set_style`.
     dpi : float, optional
-        Export resolution to check for a live figure; defaults to the journal's export
-        resolution, which :func:`eofigs.save_figure` writes by default.
+        Export resolution to check for a live figure; defaults to the resolution
+        :func:`eofigs.save_figure` writes by default for this journal and ``art``.
+    art : {"combination", "line", "halftone"}, default "combination"
+        Artwork type, which sets the resolution the journal requires: ``"line"`` for
+        plots and drawings (for example 1000 dpi for Elsevier, 1200 dpi for Springer),
+        ``"halftone"`` for photographs and images, ``"combination"`` for both.
 
     Returns
     -------
@@ -144,7 +149,8 @@ def check_figure(
     if isinstance(fig_or_path, Figure):
         key = journal or getattr(fig_or_path, "_eofigs_journal", None) or current_journal()
         preset = get_journal(key)
-        return CheckReport(preset.key, _check_live(fig_or_path, preset, dpi))
+        return CheckReport(preset.key, _check_live(fig_or_path, preset, dpi, check_art(art)))
+    check_art(art)
     path = Path(fig_or_path)
     preset = get_journal(journal or current_journal())
     if not path.exists():
@@ -153,7 +159,7 @@ def check_figure(
     if suffix == ".pdf":
         results = _check_pdf(path, preset)
     elif suffix in _RASTER_SUFFIXES:
-        results = _check_raster(path, preset)
+        results = _check_raster(path, preset, art)
     else:
         raise ValueError(f"Cannot check {suffix!r} files; use PDF, PNG, TIFF or JPEG.")
     return CheckReport(preset.key, results)
@@ -187,29 +193,40 @@ def _size_result(width_mm: float, height_mm: float, preset: Journal, target: str
     )
 
 
-def _dpi_result(dpi: float, preset: Journal, target: str) -> CheckResult:
-    need = preset.min_dpi
+_ART_WORDS = {
+    "combination": "figures with text and images",
+    "line": "line art",
+    "halftone": "halftone images",
+}
+
+
+def _dpi_result(dpi: float, preset: Journal, target: str, art: str) -> CheckResult:
+    need = preset.required_dpi(art)
     if dpi + 0.5 < need:
         return CheckResult(
-            "resolution", "fail", f"{dpi:.0f} dpi is below the {need} dpi required for figures "
-            "with text and images.", target
-        )  # fmt: skip
-    return CheckResult("resolution", "pass", f"{dpi:.0f} dpi (at least {need} needed).", target)
+            "resolution",
+            "fail",
+            f"{dpi:.0f} dpi is below the {need} dpi {preset.name} requires for {_ART_WORDS[art]}.",
+            target,
+        )
+    return CheckResult(
+        "resolution", "pass", f"{dpi:.0f} dpi (at least {need} for {_ART_WORDS[art]}).", target
+    )
 
 
 # ----------------------------------------------------------------------------- live figure
 
 
-def _check_live(fig: Figure, preset: Journal, dpi: float | None) -> list[CheckResult]:
+def _check_live(fig: Figure, preset: Journal, dpi: float | None, art: str) -> list[CheckResult]:
     fig.draw_without_rendering()
     width_mm = fig.get_figwidth() * MM_PER_INCH
     height_mm = fig.get_figheight() * MM_PER_INCH
     if dpi is None:
-        dpi = preset.export_dpi  # what save_figure writes by default
+        dpi = preset.export_dpi_for(art)  # what save_figure writes by default
     texts = [t for t in fig.findobj(Text) if t.get_visible() and t.get_text().strip()]
     return [
         _size_result(width_mm, height_mm, preset, "figure"),
-        _dpi_result(float(dpi), preset, "figure"),
+        _dpi_result(float(dpi), preset, "figure", art),
         _font_size_result(texts, preset),
         _fonts_in_use_result(texts, preset),
         _categorical_result(fig),
@@ -361,7 +378,7 @@ def _cmap_result(fig: Figure) -> CheckResult:
 # ----------------------------------------------------------------------------- files
 
 
-def _check_raster(path: Path, preset: Journal) -> list[CheckResult]:
+def _check_raster(path: Path, preset: Journal, art: str) -> list[CheckResult]:
     from PIL import Image
 
     target = path.name
@@ -382,7 +399,7 @@ def _check_raster(path: Path, preset: Journal) -> list[CheckResult]:
     height_mm = height_px / dpi * MM_PER_INCH
     return [
         _size_result(width_mm, height_mm, preset, target),
-        _dpi_result(dpi, preset, target),
+        _dpi_result(dpi, preset, target, art),
     ]
 
 

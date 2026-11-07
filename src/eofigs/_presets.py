@@ -35,16 +35,42 @@ class Journal:
         """Largest named width (full page or text width)."""
         return max(self.widths_mm.values())
 
-    @property
-    def min_dpi(self) -> int:
-        """Resolution needed for combination figures (text plus raster)."""
-        return int(self.dpi["combination"])
+    def required_dpi(self, art: str = "combination") -> int:
+        """Resolution the publisher asks for one artwork type.
+
+        Parameters
+        ----------
+        art : {"combination", "line", "halftone"}
+            ``"line"`` for line art (plots and drawings), ``"halftone"`` for photographs
+            and continuous-tone images, ``"combination"`` for figures that mix both.
+        """
+        return int(self.dpi[check_art(art)])
+
+    def export_dpi_for(self, art: str = "combination") -> int:
+        """Default raster resolution: the export resolution or the requirement, if higher."""
+        return max(self.export_dpi, self.required_dpi(art))
 
 
 @lru_cache(maxsize=1)
 def _load() -> dict:
     text = resources.files("eofigs").joinpath("data/journals.json").read_text(encoding="utf-8")
     return json.loads(text)
+
+
+ART_TYPES = ("combination", "line", "halftone")
+
+
+def check_art(art: str) -> str:
+    """Validate an artwork type name.
+
+    Raises
+    ------
+    ValueError
+        If ``art`` is not ``"combination"``, ``"line"`` or ``"halftone"``.
+    """
+    if art not in ART_TYPES:
+        raise ValueError(f"art must be one of {ART_TYPES} (got {art!r}).")
+    return art
 
 
 def journal_keys() -> list[str]:
