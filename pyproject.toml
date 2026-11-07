@@ -53,7 +53,7 @@ dependencies = [
 [project.optional-dependencies]
 dask = ["dask[array]>=2024.6", "tqdm>=4.66"]
 xee = ["xee>=0.1", "earthengine-api>=1.0"]
-test = ["pytest>=8", "pytest-cov>=5", "pytest-mpl>=0.17"]
+test = ["pytest>=8", "pytest-cov>=5", "pytest-mpl>=0.17", "dask[array]>=2024.6"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 dev = ["eofigs[dask,test,docs]", "ruff>=0.17", "pre-commit>=4", "build>=1.2"]
 
@@ -68,15 +68,19 @@ Changelog = "https://github.com/kmkamilkhel/eofigs/blob/main/CHANGELOG.md"
 path = "src/eofigs/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/eofigs", "tests", "README.md", "LICENSE", "CHANGELOG.md", "CITATION.cff"]
+include = ["src/eofigs", "tests", "conftest.py", "README.md", "LICENSE", "CHANGELOG.md", "CITATION.cff"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eofigs"]
 
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
-addopts = "-ra --strict-markers --doctest-modules"
-filterwarnings = ["error"]
+addopts = "-ra --strict-markers --doctest-modules -m \"not slow\""
+filterwarnings = [
+    "error",
+    # older rioxarray releases (the newest need Python 3.13) compose transforms with "*"
+    "ignore:Use `@` matmul instead of:PendingDeprecationWarning",
+]
 markers = ["slow: long-running performance tests"]
 
 [tool.coverage.run]

@@ -93,3 +93,28 @@ def test_pdf_fonts_embedded_even_outside_style(tmp_path):
     ax.set_xlabel("Time")
     eofigs.save_figure(fig, tmp_path / "plain.pdf", journal="custom", check=False)
     assert b"/Type3" not in (tmp_path / "plain.pdf").read_bytes()
+
+
+def test_line_art_raises_raster_resolution(tmp_path, sans_font):
+    with eofigs.style("springer", font=sans_font):
+        fig, ax = eofigs.new_figure("single", height_mm=60)
+        ax.plot([0, 1], [0, 1])
+        report = eofigs.save_figure(fig, tmp_path / "line.png", art="line")
+    with Image.open(tmp_path / "line.png") as im:
+        assert im.info["dpi"][0] == pytest.approx(1200, abs=0.01)
+    assert report.passed, str(report)
+    assert "1200 for line art" in str(report)
+
+
+def test_line_art_check_fails_at_600_dpi(tmp_path, sans_font):
+    with eofigs.style("elsevier", font=sans_font):
+        fig, ax = eofigs.new_figure("single", height_mm=60)
+        ax.plot([0, 1], [0, 1])
+        report = eofigs.save_figure(fig, tmp_path / "l.png", dpi=600, art="line")
+    failing = {r.target for r in report.failures}
+    assert failing == {"figure", "l.png"}
+    assert "1000 dpi Elsevier requires for line art" in str(report)
+    with pytest.raises(ValueError, match="art must be one of"):
+        eofigs.save_figure(fig, tmp_path / "x.png", art="photo")
+    with pytest.raises(ValueError, match="art must be one of"):
+        eofigs.check_figure(tmp_path / "l.png", art="photo")

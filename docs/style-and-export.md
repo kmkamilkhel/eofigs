@@ -79,6 +79,21 @@ and a height in mm or an aspect ratio. Heights above the journal maximum raise a
 `save_figure` never trims the figure, so the file has exactly the printed size; use
 `size_px=` when a fixed pixel width is required.
 
+## Artwork type
+
+Publishers ask for more resolution for line art (plots and drawings without images) than
+for figures that combine text and images. Pass `art=` to `save_figure` and `check_figure`:
+
+| `art` | Meaning | Elsevier | Springer, Taylor & Francis |
+|---|---|---|---|
+| `"combination"` (default) | text with images or maps | 500 dpi | 600 dpi |
+| `"line"` | line art: plots, charts, diagrams | 1000 dpi | 1200 dpi |
+| `"halftone"` | photographs and continuous-tone images | 300 dpi | 300 dpi |
+
+Raster files are written at the preset's export resolution (600 dpi) or the requirement,
+whichever is higher, so `save_figure(fig, "fig3", art="line")` writes a 1000 dpi TIFF for
+Elsevier. Vector PDFs are not affected.
+
 ## Figure check
 
 `check_figure` works on a live figure or on an exported file.
@@ -86,7 +101,7 @@ and a height in mm or an aspect ratio. Heights above the journal maximum raise a
 | Check | Rule |
 |---|---|
 | Size | width matches a column width (warning otherwise); not wider or taller than the journal allows |
-| Resolution | at least the journal's resolution for figures with text and images |
+| Resolution | at least the journal's resolution for the artwork type (`art=`) |
 | Font size | smallest text at least the journal minimum |
 | Fonts | fonts in use (live figure) or embedded (PDF); Type 3 fonts fail |
 | Colour-blind safety | line, marker, bar and fill colours differ by CIEDE2000 ≥ 10 in normal vision and ≥ 6 under simulated protan, deutan and tritan vision (Machado et al. 2009); close pairs are a warning, because markers, line styles or direct labels can separate them |

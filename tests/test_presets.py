@@ -21,7 +21,8 @@ def test_preset_fields_are_valid(key):
     assert 5 <= j.min_font_pt <= j.base_font_pt <= 12
     assert j.font_family in {"serif", "sans-serif"}
     assert set(j.dpi) == {"line", "halftone", "combination"}
-    assert j.export_dpi >= j.min_dpi
+    assert j.export_dpi >= j.required_dpi("combination")
+    assert j.export_dpi_for("line") >= j.required_dpi("line")
     assert "pdf" in j.formats
     assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", j.checked)
     if key != "custom":
@@ -56,3 +57,12 @@ def test_resolve_width():
         resolve_width(200, j)
     with pytest.raises(ValueError, match="positive"):
         resolve_width(0, j)
+
+
+def test_required_dpi_by_artwork_type():
+    assert get_journal("elsevier").required_dpi("line") == 1000
+    assert get_journal("elsevier").required_dpi("halftone") == 300
+    assert get_journal("springer").export_dpi_for("line") == 1200
+    assert get_journal("elsevier").export_dpi_for("halftone") == 600
+    with pytest.raises(ValueError, match="art must be one of"):
+        get_journal("elsevier").required_dpi("photo")

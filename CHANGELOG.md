@@ -21,6 +21,17 @@ uses [Semantic Versioning](https://semver.org/).
   colour-map lightness, for live figures and exported files.
 - Journal presets in `journals.json` with source links and check dates; documentation pages
   for style and export, and for the presets.
+- `art=` option ("combination", "line", "halftone") for `save_figure` and `check_figure`:
+  line art is written and checked at the publisher's line-art resolution (for example
+  1000 dpi for Elsevier, 1200 dpi for Springer).
+- Variable library (`variable`, `register_variable`, `Variable`): 22 Earth observation
+  variables in `variables.json` with long names, symbols, mathtext units, cmcrameri colour
+  maps, default ranges and zero-centred anomaly and trend maps; recognises xarray variables
+  from CF attributes and writes CF units in mathtext.
+- `fit_raster`: reduces GeoTIFFs, COGs and xarray rasters to the printed resolution (mean,
+  mode or mask fraction), ignores nodata, sets sparse pixels to NaN (`min_valid`), keeps the
+  CRS, stays lazy with dask, and reads files at the output size (integer files are averaged
+  exactly by eofigs).
 - Project structure, packaging, test and documentation workflows.
 - Container image workflow for GitHub Container Registry (development `dev` tag); release tags build
   a multi-architecture image (amd64 and arm64).

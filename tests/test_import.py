@@ -11,13 +11,17 @@ def test_public_api():
     assert set(eofigs.__all__) == {
         "CheckReport",
         "CheckResult",
+        "Variable",
         "__version__",
         "check_figure",
+        "fit_raster",
         "label_panels",
         "new_figure",
+        "register_variable",
         "save_figure",
         "set_style",
         "style",
+        "variable",
     }
     for name in eofigs.__all__:
         assert hasattr(eofigs, name)

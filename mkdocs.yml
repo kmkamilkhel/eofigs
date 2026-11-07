@@ -29,6 +29,8 @@ nav:
   - Installation: installation.md
   - Style and export: style-and-export.md
   - Journal presets: journals.md
+  - Variables: variables.md
+  - Large rasters: rasters.md
   - API reference: api.md
   - Changelog: changelog.md
 
