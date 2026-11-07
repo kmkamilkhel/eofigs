@@ -47,22 +47,27 @@ superscripts: some journal fonts have no glyph for "⁻¹" and print an empty bo
 ## An author or lab style in one call
 
 Package defaults stay generic. An author or a lab sets its own look with one call at the
-top of a script, for example bold Arial text with bold capital panel letters:
+top of a script, for example bold Arial text with bold capital panel letters and at most five
+ticks per axis:
 
 ```python
-eofigs.set_style(journal="custom", font="Arial", bold=True, labels="A")
+eofigs.set_style(journal="custom", font="Arial", bold=True, labels="A", max_ticks=5)
 ```
 
 This sets every text element in bold, falls back to Liberation Sans or Arimo where Arial is
-not installed (with a warning), and makes `label_panels` write bold **A**, **B**, ... just
-outside the top-left corner of each panel. A journal preset can be combined with it
+not installed (with a warning), makes `label_panels` write bold **A**, **B**, ... just
+outside the top-left corner of each panel, and turns on the tick rule (below). A journal preset can be combined with it
 (`journal="elsevier"`) to keep that journal's sizes and resolution.
 
 ## Ticks and dense layers
 
-- `tidy_axes(ax, colour_bar, ...)` limits each axis and colour bar to at most five ticks at
-  round values (1, 2, 2.5 and 5 times a power of ten). Ticks set explicitly, log axes and
-  map axes are left alone. Every eofigs recipe calls it; date axes get concise date labels.
+- `tidy_axes(ax, colour_bar, ...)` limits each axis and colour bar to a few ticks at round
+  values (1, 2, 2.5 and 5 times a power of ten): five, or the `max_ticks` set with
+  `set_style`. Ticks set explicitly, log axes and map axes are left alone; date axes get
+  concise date labels. Every eofigs recipe calls it.
+- `set_style(max_ticks=5)` makes a tick limit a house rule: `check_figure` then warns about
+  axes with more tick labels. Without it (the default) ticks are not checked, because the
+  number of ticks is a matter of style, not a journal requirement.
 - `save_figure` rasterises dense layers in vector files: mesh plots (`pcolormesh`) and
   collections with more than 2 000 elements (dense scatter plots, many polygons) are drawn
   as an image at the output resolution inside the PDF, while text, axes and lines stay
@@ -101,10 +106,10 @@ Elsevier. Vector PDFs are not affected.
 | Size | width matches a column width (warning otherwise); not wider or taller than the journal allows |
 | Resolution | at least the journal's resolution for the artwork type (`art=`) |
 | Font size | smallest text at least the journal minimum |
-| Fonts | fonts in use (live figure) or embedded (PDF); Type 3 fonts fail |
+| Fonts | fonts in use (live figure) or embedded (PDF); Type 3 fonts fail. Metric-compatible free fonts pass in place of the journal's fonts, with a note: Liberation Sans and Arimo for Arial, TeX Gyre Heros for Helvetica, Liberation Serif, Tinos and TeX Gyre Termes for Times New Roman |
 | Colour-blind safety | line, marker, bar and fill colours differ by CIEDE2000 ≥ 10 in normal vision and ≥ 6 under simulated protan, deutan and tritan vision (Machado et al. 2009); close pairs are a warning, because markers, line styles or direct labels can separate them |
 | Colour maps | sequential maps need monotonic lightness, diverging maps monotonic lightness on each side of the centre, cyclic and categorical maps are exempt; rainbow-type maps (jet, rainbow, hsv, turbo, ...) fail |
-| Ticks | at most five tick labels per axis (warning otherwise; `tidy_axes` fixes it) |
+| Ticks | only with `set_style(max_ticks=...)`: at most that many tick labels per axis (warning otherwise; `tidy_axes` fixes it) |
 
 `cvd_preview` shows the figure as seen with colour-vision deficiencies; see
 [Colours](colours.md).

@@ -130,7 +130,29 @@ def test_tidy_axes_limits_ticks_to_round_values(sans_font):
             mantissa = steps[0] / 10 ** np.floor(np.log10(steps[0]))
             assert any(np.isclose(mantissa, m) for m in (1, 2, 2.5, 5))
     assert len(bar.get_ticks()) <= 5
-    assert "ticks" not in {r.name for r in eofigs.check_figure(fig).warnings}
+
+
+def test_tick_rule_is_a_style_setting(sans_font):
+    def figure(**style):
+        with eofigs.style("custom", font=sans_font, **style):
+            fig, ax = eofigs.new_figure("single", height_mm=60)
+            ax.plot([0, 1], [0, 1])  # matplotlib's default: six ticks, 0 to 1 by 0.2
+        return fig, ax
+
+    fig, ax = figure()
+    assert "ticks" not in {r.name for r in eofigs.check_figure(fig).results}
+    fig, ax = figure(max_ticks=5)
+    report = eofigs.check_figure(fig)
+    assert report.passed and [r.name for r in report.warnings] == ["ticks"]
+    eofigs.tidy_axes(ax)
+    assert eofigs.check_figure(fig).warnings == []
+    fig, ax = figure(max_ticks=3)
+    with eofigs.style("custom", font=sans_font, max_ticks=3):
+        eofigs.tidy_axes(ax)  # uses the style's limit
+    low, high = ax.get_ylim()
+    assert len([t for t in ax.get_yticks() if low <= t <= high]) <= 3
+    with pytest.raises(ValueError, match="max_ticks"):
+        eofigs.set_style("custom", max_ticks=1)
 
 
 def test_tidy_axes_keeps_explicit_and_log_ticks(sans_font):
@@ -181,7 +203,7 @@ def test_true_minus_sign(sans_font):
 
 
 def test_crowded_ticks_warn(sans_font):
-    with eofigs.style("custom", font=sans_font):
+    with eofigs.style("custom", font=sans_font, max_ticks=5):
         fig, ax = eofigs.new_figure("double")
         ax.plot(np.arange(12), np.arange(12))
         ax.set_xticks(np.arange(12))
@@ -191,7 +213,7 @@ def test_crowded_ticks_warn(sans_font):
 
 
 def test_hidden_tick_labels_are_not_counted(sans_font):
-    with eofigs.style("custom", font=sans_font):
+    with eofigs.style("custom", font=sans_font, max_ticks=5):
         fig, ax = eofigs.new_figure("double")
         ax.plot(np.arange(12), np.arange(12))
         ax.set_xticks(np.arange(12))
@@ -208,7 +230,7 @@ def test_hidden_tick_labels_are_not_counted(sans_font):
 def test_author_style_in_one_call():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)  # Arial may fall back to Liberation Sans
-        with eofigs.style(journal="custom", font="Arial", bold=True, labels="A"):
+        with eofigs.style(journal="custom", font="Arial", bold=True, labels="A", max_ticks=5):
             assert mpl.rcParams["font.weight"] == "bold"
             assert mpl.rcParams["axes.labelweight"] == "bold"
             assert mpl.rcParams["font.family"][0] in ("Arial", "Liberation Sans", "Arimo",
@@ -216,6 +238,7 @@ def test_author_style_in_one_call():
             fig, axes = eofigs.new_figure("double", ncols=2)
             texts = eofigs.label_panels(axes)
     assert [t.get_text() for t in texts] == ["A", "B"]
+    assert fig._eofigs_max_ticks == 5
     for text, ax in zip(texts, axes, strict=True):
         assert text.get_fontweight() == "bold"
         assert text.get_position() == (0, 1)  # top-left corner of the panel
@@ -323,3 +346,40 @@ def test_cvd_preview_errors(tmp_path, sans_font):
         eofigs.cvd_preview(tmp_path / "figure.pdf")
     with pytest.raises(FileNotFoundError):
         eofigs.cvd_preview(tmp_path / "missing.png")
+
+
+# ----------------------------------------------------------------------------- font substitutes
+
+
+@pytest.mark.parametrize(
+    ("free", "commercial"),
+    [
+        ("Liberation Sans", "Arial"),
+        ("Arimo", "Arial"),
+        ("TeX Gyre Heros", "Helvetica"),
+        ("Liberation Serif", "Times New Roman"),
+        ("TeX Gyre Termes", "Times New Roman"),
+    ],
+)
+def test_metric_compatible_fonts_pass_with_a_note(free, commercial):
+    from eofigs._presets import get_journal
+    from eofigs.check import _font_list_result
+
+    preset = get_journal("elsevier")  # lists Arial, Helvetica, Times New Roman, ...
+    result = _font_list_result([free], preset, "figure", embedded=False)
+    assert result.status == "pass"
+    assert f"{free} is metric-compatible with {commercial}" in result.message
+    pdf = _font_list_result([free.replace(" ", "") + "-Bold", "DejaVuSans"], preset, "f.pdf", True)
+    assert pdf.status == "pass" and "metric-compatible" in pdf.message
+
+
+def test_other_fonts_still_warn():
+    from eofigs._presets import get_journal
+    from eofigs.check import _font_list_result
+
+    preset = get_journal("springer")  # lists Helvetica and Arial only
+    assert _font_list_result(["Liberation Serif"], preset, "figure", False).status == "warn"
+    assert _font_list_result(["Comic Neue"], preset, "figure", False).status == "warn"
+    assert _font_list_result(["Liberation Sans"], preset, "figure", False).status == "pass"
+    custom = get_journal("mdpi")  # no font list
+    assert _font_list_result(["Comic Neue"], custom, "figure", False).status == "pass"

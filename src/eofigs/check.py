@@ -30,7 +30,7 @@ from eofigs._colour import (
     to_srgb,
 )
 from eofigs._presets import MM_PER_INCH, Journal, check_art, get_journal
-from eofigs.styling import MAX_TICKS, current_journal
+from eofigs.styling import current_journal, current_max_ticks
 
 Status = Literal["pass", "warn", "fail"]
 
@@ -99,8 +99,9 @@ def check_figure(
     """Check a figure, or an exported PDF/PNG/TIFF, against a journal preset.
 
     For a live figure the checks are: printed size, resolution, smallest font size,
-    fonts in use, colour-blind safety of categorical colours, colour maps, and the
-    number of tick labels per axis (at most five; more is a warning). For
+    fonts in use, colour-blind safety of categorical colours, colour maps, and, when a
+    tick limit is set with ``set_style(max_ticks=...)``, the number of tick labels per
+    axis. For
     files: size and resolution (raster files), size and embedded fonts (PDF).
 
     Parameters
@@ -152,7 +153,10 @@ def check_figure(
     if isinstance(fig_or_path, Figure):
         key = journal or getattr(fig_or_path, "_eofigs_journal", None) or current_journal()
         preset = get_journal(key)
-        return CheckReport(preset.key, _check_live(fig_or_path, preset, dpi, check_art(art)))
+        max_ticks = getattr(fig_or_path, "_eofigs_max_ticks", None) or current_max_ticks()
+        return CheckReport(
+            preset.key, _check_live(fig_or_path, preset, dpi, check_art(art), max_ticks)
+        )
     check_art(art)
     path = Path(fig_or_path)
     preset = get_journal(journal or current_journal())
@@ -220,22 +224,26 @@ def _dpi_result(dpi: float, preset: Journal, target: str, art: str) -> CheckResu
 # ----------------------------------------------------------------------------- live figure
 
 
-def _check_live(fig: Figure, preset: Journal, dpi: float | None, art: str) -> list[CheckResult]:
+def _check_live(
+    fig: Figure, preset: Journal, dpi: float | None, art: str, max_ticks: int | None = None
+) -> list[CheckResult]:
     fig.draw_without_rendering()
     width_mm = fig.get_figwidth() * MM_PER_INCH
     height_mm = fig.get_figheight() * MM_PER_INCH
     if dpi is None:
         dpi = preset.export_dpi_for(art)  # what save_figure writes by default
     texts = [t for t in fig.findobj(Text) if t.get_visible() and t.get_text().strip()]
-    return [
+    results = [
         _size_result(width_mm, height_mm, preset, "figure"),
         _dpi_result(float(dpi), preset, "figure", art),
         _font_size_result(texts, preset),
         _fonts_in_use_result(texts, preset),
         _categorical_result(fig),
         _cmap_result(fig),
-        _tick_result(fig),
     ]
+    if max_ticks is not None:
+        results.append(_tick_result(fig, max_ticks))
+    return results
 
 
 def _font_size_result(texts: list[Text], preset: Journal) -> CheckResult:
@@ -259,22 +267,67 @@ def _font_name(text: Text) -> str:
     return font_manager.get_font(path).family_name
 
 
+#: Free fonts with the same metrics as a commercial font: text keeps the same width and
+#: line breaks, so journals' typesetting accepts them in its place.
+METRIC_COMPATIBLE = {
+    "Liberation Sans": "Arial",
+    "Arimo": "Arial",
+    "TeX Gyre Heros": "Helvetica",
+    "Liberation Serif": "Times New Roman",
+    "Tinos": "Times New Roman",
+    "TeX Gyre Termes": "Times New Roman",
+    "Liberation Mono": "Courier",
+    "Cousine": "Courier",
+}
+
+
+def _norm(name: str) -> str:
+    return re.sub(r"[^a-z]", "", name.lower())
+
+
 def _accepted(name: str, accepted: tuple[str, ...]) -> bool:
-    norm = re.sub(r"[^a-z]", "", name.lower())
-    return any(re.sub(r"[^a-z]", "", a.lower()) in norm for a in accepted)
+    return any(_norm(a) in _norm(name) for a in accepted)
+
+
+def _substitute_for(name: str, accepted: tuple[str, ...]) -> str | None:
+    """Return the listed font that ``name`` is metric-compatible with, if any."""
+    for free, commercial in METRIC_COMPATIBLE.items():
+        if _norm(free) in _norm(name) and _accepted(commercial, accepted):
+            return commercial
+    return None
+
+
+def _font_list_result(names: list[str], preset: Journal, target: str, embedded: bool):
+    what = "Embedded fonts" if embedded else "Fonts in use"
+    if not preset.fonts:
+        return CheckResult("fonts", "pass", f"{what}: {', '.join(names)}.", target)
+    found = any if embedded else all  # a PDF also embeds fonts for symbols and mathtext
+    notes = []
+    ok = []
+    for name in names:
+        if _accepted(name, preset.fonts):
+            ok.append(True)
+            continue
+        commercial = _substitute_for(name, preset.fonts)
+        ok.append(commercial is not None)
+        if commercial is not None:
+            notes.append(f"{name} is metric-compatible with {commercial}")
+    if not found(ok):
+        return CheckResult(
+            "fonts",
+            "warn",
+            f"{what}: {', '.join(names)}; {preset.name} lists {', '.join(preset.fonts)}.",
+            target,
+        )
+    note = f" ({'; '.join(sorted(set(notes)))})" if notes else ""
+    return CheckResult("fonts", "pass", f"{what}: {', '.join(names)}{note}.", target)
 
 
 def _fonts_in_use_result(texts: list[Text], preset: Journal) -> CheckResult:
     names = sorted({_font_name(t) for t in texts})
     if not names:
         return CheckResult("fonts", "pass", "No text in the figure.")
-    if preset.fonts and not all(_accepted(n, preset.fonts) for n in names):
-        return CheckResult(
-            "fonts",
-            "warn",
-            f"Fonts in use: {', '.join(names)}; {preset.name} lists {', '.join(preset.fonts)}.",
-        )
-    return CheckResult("fonts", "pass", f"Fonts in use: {', '.join(names)}.")
+    return _font_list_result(names, preset, "figure", embedded=False)
 
 
 def _composite(rgba: tuple[float, float, float, float]) -> tuple[float, float, float]:
@@ -396,7 +449,7 @@ def _tick_count(axis) -> int:
     return sum(1 for label in labels if str(label).strip())
 
 
-def _tick_result(fig: Figure) -> CheckResult:
+def _tick_result(fig: Figure, max_ticks: int) -> CheckResult:
     crowded = []
     for i, ax in enumerate(fig.axes, 1):
         if not ax.get_visible() or not ax.axison:
@@ -405,16 +458,16 @@ def _tick_result(fig: Figure) -> CheckResult:
             if axis.get_scale() != "linear":
                 continue
             n = _tick_count(axis)
-            if n > MAX_TICKS:
+            if n > max_ticks:
                 crowded.append(f"axes {i} {axis.axis_name} ({n})")
     if crowded:
         return CheckResult(
             "ticks",
             "warn",
-            f"More than {MAX_TICKS} tick labels: {', '.join(crowded[:6])}. "
+            f"More than {max_ticks} tick labels: {', '.join(crowded[:6])}. "
             "eofigs.tidy_axes limits ticks to round values.",
         )
-    return CheckResult("ticks", "pass", f"At most {MAX_TICKS} tick labels per axis.")
+    return CheckResult("ticks", "pass", f"At most {max_ticks} tick labels per axis.")
 
 
 # ----------------------------------------------------------------------------- preview
@@ -612,16 +665,6 @@ def _check_pdf(path: Path, preset: Journal) -> list[CheckResult]:
                 target,
             )
         )
-    elif preset.fonts and not any(_accepted(n, preset.fonts) for n in names):
-        results.append(
-            CheckResult(
-                "fonts",
-                "warn",
-                f"Embedded fonts {', '.join(names)}; "
-                f"{preset.name} lists {', '.join(preset.fonts)}.",
-                target,
-            )
-        )
     else:
-        results.append(CheckResult("fonts", "pass", f"Embedded fonts: {', '.join(names)}.", target))
+        results.append(_font_list_result(names, preset, target, embedded=True))
     return results

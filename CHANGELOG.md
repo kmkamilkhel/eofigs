@@ -12,8 +12,11 @@ uses [Semantic Versioning](https://semver.org/).
   colours; colour maps `"eofigs.slate"` and `"eofigs.terra_slate"` (and `_r`).
 - `cvd_preview`: one image showing a figure in normal vision, protan, deutan and tritan
   simulation and greyscale.
-- `tidy_axes`: at most five ticks at round values on axes and colour bars; `check_figure`
-  warns about axes with more than five tick labels.
+- `tidy_axes`: a few ticks at round values on axes and colour bars.
+  `set_style(max_ticks=5)` sets a house tick limit, which `check_figure` then checks.
+- `check_figure` accepts metric-compatible free fonts (Liberation Sans, Arimo, TeX Gyre
+  Heros, Liberation Serif, Tinos, TeX Gyre Termes) in place of the journal's fonts, with a
+  note.
 - `save_figure` rasterises dense layers (mesh plots, collections with more than 2 000
   elements) inside vector files; `rasterize_dense=False` keeps them vector.
 - Styles use a true minus sign.
