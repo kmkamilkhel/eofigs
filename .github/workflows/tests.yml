@@ -73,3 +73,7 @@ jobs:
           total=$(coverage report --format=total)
           echo "Coverage total: ${total}%"
           echo "### Coverage (${{ matrix.os }}, Python ${{ matrix.python-version }}): ${total}%" >> "$GITHUB_STEP_SUMMARY"
+      - name: Check coverage thresholds (80 % overall, 90 % per module)
+        run: |
+          coverage json -o coverage.json
+          python .github/scripts/check_coverage.py coverage.json
