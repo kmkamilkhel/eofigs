@@ -9,4 +9,7 @@ uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Project structure, packaging, test and documentation workflows.
-- Container image workflow for GitHub Container Registry (development `dev` tag).
+- Container image workflow for GitHub Container Registry (development `dev` tag); release tags build
+  a multi-architecture image (amd64 and arm64).
+- Code of conduct (Contributor Covenant 2.1), issue templates, pull request template.
+- Citation file validation and coverage total in continuous integration.

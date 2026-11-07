@@ -60,6 +60,12 @@ confusion matrix, Google Earth Engine input through Xee at print scale.
 
 **v0.3**: R package with matching function names.
 
+## Contributing
+
+Questions and ideas are welcome in [Discussions](https://github.com/kmkamilkhel/eofigs/discussions);
+bugs and feature requests in [Issues](https://github.com/kmkamilkhel/eofigs/issues).
+See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Citation
 
 If you use eofigs, please cite it using the metadata in [CITATION.cff](CITATION.cff).

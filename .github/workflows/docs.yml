@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   build:
+    name: docs build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -27,6 +28,7 @@ jobs:
           path: site
 
   deploy:
+    name: docs deploy
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
