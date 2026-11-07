@@ -72,7 +72,9 @@ def fit_raster(
     Parameters
     ----------
     data : str, pathlib.Path, xarray.DataArray or xarray.Dataset
-        A GeoTIFF/COG path, or a georeferenced DataArray/Dataset (rioxarray CRS set).
+        A GeoTIFF/COG path or URL (``https://``, ``http://`` or ``s3://``; a cloud-optimised
+        GeoTIFF is then read only at the needed resolution), or a georeferenced
+        DataArray/Dataset (rioxarray CRS set).
         Arrays may be dask-backed; the result then stays lazy.
     width_mm : float
         Printed width of the map area in mm.
@@ -131,6 +133,8 @@ def fit_raster(
     if kind is not None and kind not in REDUCTIONS:
         raise ValueError(f"kind must be one of {REDUCTIONS} (got {kind!r}).")
     width_px, height_px = pixel_budget(width_mm, height_mm, dpi)
+    if isinstance(data, str) and _is_url(data):
+        return _fit_file(data, width_px, height_px, kind, min_valid, band)
     if isinstance(data, str | Path):
         return _fit_file(Path(data), width_px, height_px, kind, min_valid, band)
     if isinstance(data, xr.Dataset):
@@ -262,23 +266,37 @@ def _mode_last_axes(values: np.ndarray) -> np.ndarray:
 # ----------------------------------------------------------------------------- files
 
 
+_URL_SCHEMES = ("http://", "https://", "s3://")
+
+
+def _is_url(text: str) -> bool:
+    return text.lower().startswith(_URL_SCHEMES)
+
+
 def _fit_file(
-    path: Path, width_px: int, height_px: int | None, kind: str | None, min_valid: float, band: int
+    path: Path | str,
+    width_px: int,
+    height_px: int | None,
+    kind: str | None,
+    min_valid: float,
+    band: int,
 ) -> xr.DataArray:
     import rasterio
     import rioxarray  # noqa: F401
 
-    if not path.exists():
+    if isinstance(path, Path) and not path.exists():
         raise FileNotFoundError(path)
+    name = Path(str(path).split("?")[0]).name  # file name, also for URLs
+    stem = Path(name).stem
     with rasterio.open(path) as src:
         if src.crs is None:
             raise ValueError(
-                f"{path.name} has no CRS. Assign one first (for example with "
+                f"{name} has no CRS. Assign one first (for example with "
                 "'gdal_edit.py -a_srs EPSG:4326' or rioxarray's write_crs); "
                 "eofigs never assumes a CRS."
             )
         if not src.transform.is_rectilinear:
-            raise ValueError(f"{path.name} has a rotated transform; warp it first.")
+            raise ValueError(f"{name} has a rotated transform; warp it first.")
         method = kind or _file_kind(src, band)
         factor = _factor(src.height, src.width, width_px, height_px)
         dtype = np.dtype(src.dtypes[band - 1])
@@ -289,7 +307,7 @@ def _fit_file(
         else:
             array, transform = _read_gdal(src, band, factor, method, min_valid)
         array = array.astype(out_dtype)
-        attrs = {"long_name": src.descriptions[band - 1] or path.stem}
+        attrs = {"long_name": src.descriptions[band - 1] or stem}
         if src.units and src.units[band - 1]:
             attrs["units"] = src.units[band - 1]
         crs, source_shape = src.crs, [src.height, src.width]
@@ -303,7 +321,7 @@ def _fit_file(
         "source_shape": source_shape,
         "min_valid": min_valid,
     }
-    out = xr.DataArray(array, dims=("y", "x"), coords={"y": y, "x": x}, name=path.stem, attrs=attrs)
+    out = xr.DataArray(array, dims=("y", "x"), coords={"y": y, "x": x}, name=stem, attrs=attrs)
     out = out.rio.write_crs(crs)
     return out.rio.write_transform(transform)
 
