@@ -8,7 +8,12 @@ repos:
         args: ["--unsafe"]  # mkdocs.yml uses !!python/name tags
       - id: check-toml
       - id: check-added-large-files
-        args: ["--maxkb=2048"]  # docs sample data up to 2 MB per file
+        args: ["--maxkb=1024"]
+        exclude: ^docs/data/
+      - id: check-added-large-files
+        name: check for added large files (docs sample data, up to 2 MB)
+        args: ["--maxkb=2048"]
+        files: ^docs/data/
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.17.4
     hooks:
