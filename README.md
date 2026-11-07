@@ -40,6 +40,10 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 
 ## Roadmap
 
+Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
+`save_figure` and `check_figure`.
+
+
 **v0.1**
 
 | Function | Purpose |

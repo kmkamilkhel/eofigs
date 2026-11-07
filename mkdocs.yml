@@ -27,6 +27,8 @@ theme:
 nav:
   - Home: index.md
   - Installation: installation.md
+  - Style and export: style-and-export.md
+  - Journal presets: journals.md
   - API reference: api.md
   - Changelog: changelog.md
 
