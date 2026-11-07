@@ -28,6 +28,16 @@ The first release is not yet on PyPI. To try the development version:
 pip install git+https://github.com/kmkamilkhel/eofigs.git
 ```
 
+## Run with Docker
+
+A container image with eofigs and its geospatial stack (cartopy, rioxarray, geopandas, fonts)
+is published on GitHub Container Registry. Until v0.1 it is a **development image** (`dev` tag),
+rebuilt from the main branch:
+
+```bash
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
+```
+
 ## Roadmap
 
 **v0.1**

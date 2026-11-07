@@ -9,3 +9,4 @@ uses [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Project structure, packaging, test and documentation workflows.
+- Container image workflow for GitHub Container Registry (development `dev` tag).

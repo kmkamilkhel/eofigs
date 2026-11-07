@@ -20,3 +20,12 @@ pip install git+https://github.com/kmkamilkhel/eofigs.git
 Journal presets use Times New Roman or Arial when installed. Otherwise eofigs falls back to
 metric-compatible free fonts (TeX Gyre Termes, Liberation Serif, Liberation Sans) and tells you
 which font was used.
+
+## Docker
+
+A development image with eofigs and its geospatial stack is published on GitHub Container
+Registry (`dev` tag until v0.1):
+
+```bash
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
+```
