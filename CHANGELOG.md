@@ -8,6 +8,21 @@ uses [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `study_area_map`: study area outline over a grey hillshade with semi-transparent
+  elevation colours, a single-colour overlay (for example tree cover), labelled points,
+  graticule (at most four labels per side), north arrow to true north, scale bar, legend
+  and locator inset. The figure height follows the study area's shape within the journal
+  maximum; inset, legend and furniture go to the emptiest part of the map or to a column
+  beside it; point labels avoid each other and the outline.
+- `add_north_arrow` (rotated by the grid convergence), `add_scale_bar` (true distance at
+  the map centre, round lengths) and `add_inset` (Natural Earth countries, default de facto
+  boundaries bundled; Natural Earth worldviews downloaded on request with a pinned version
+  and checksum, and cached).
+- `check_figure` checks that single-colour overlays stay distinguishable from the colour
+  maps beneath them.
+- `fit_raster` reads http(s) and s3 URLs.
+- Swat valley sample data in `docs/data/swat/` (not in the package) with
+  `DATA_LICENSES.md`; gallery entries for the Swat study area map and a house style.
 - `eofigs.palettes`: Okabe-Ito, muted, slate and terracotta-slate palettes and neutral
   colours; colour maps `"eofigs.slate"` and `"eofigs.terra_slate"` (and `_r`).
 - `cvd_preview`: one image showing a figure in normal vision, protan, deutan and tritan

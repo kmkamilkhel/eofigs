@@ -24,6 +24,11 @@ journal-ready figures that know the analysis, the variable and the printed size:
 
 <table>
 <tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_swat.png" alt="Study area map: Swat valley"></a><br><b>Study area map: Swat valley</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_single_column/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_single_column.png" alt="Study area map: single column"></a><br><b>Study area map: single column</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/house_style/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/house_style.png" alt="House style"></a><br><b>House style</b></td>
+</tr>
+<tr>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/style_export/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/style_export.png" alt="Journal style and export"></a><br><b>Journal style and export</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/large_raster/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/large_raster.png" alt="Large raster at print size"></a><br><b>Large raster at print size</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_significance/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_significance.png" alt="Trend and significance"></a><br><b>Trend and significance</b></td>
@@ -60,7 +65,8 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 
 Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
-`register_variable`, `fit_raster`, `trend` and `figure_set`.
+`register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
+`add_north_arrow`, `add_scale_bar` and `add_inset`.
 
 
 **v0.1**
@@ -74,7 +80,7 @@ Available in the development version: `set_style`, `style`, `new_figure`, `label
 | `variable`, `register_variable` | Variable library: colour map, symbol, unit, range |
 | `fit_raster` | Reduce large rasters to the pixels the printed figure needs |
 | `trend` | Theil–Sen slope with Mann–Kendall test on a time-series cube |
-| `study_area_map` | DEM hillshade, locator inset, graticule, north arrow, scale bar, points, legend |
+| `study_area_map` | DEM hillshade, overlay, labelled points, locator inset, graticule, north arrow to true north, scale bar, legend; automatic layout |
 | `trend_map` | Trend map with zero-centred colours, significance dots, optional latitude profile |
 | `event_composite` | Before/during/after anomaly maps with a composite time series |
 | `accuracy_scatter` | Density scatter with 1:1 line, R², RMSE and bias |
@@ -96,4 +102,5 @@ If you use eofigs, please cite it using the metadata in [CITATION.cff](CITATION.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE). Data files have their own licences, listed in
+[DATA_LICENSES.md](DATA_LICENSES.md).

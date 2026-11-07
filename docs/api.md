@@ -32,6 +32,16 @@
 
 ::: eofigs.fit_raster
 
+## Maps
+
+::: eofigs.study_area_map
+
+::: eofigs.add_north_arrow
+
+::: eofigs.add_scale_bar
+
+::: eofigs.add_inset
+
 ## Trends
 
 ::: eofigs.trend
