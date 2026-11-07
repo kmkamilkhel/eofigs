@@ -349,6 +349,8 @@ def _cmap_result(fig: Figure) -> CheckResult:
             if not _is_colour_mapped(artist):
                 continue
             cmap = artist.get_cmap()
+            if cmap.N <= 1:  # a single fixed colour (for example contour lines), not a colour map
+                continue
             kind = getattr(artist, "_eofigs_cmap_kind", None) or classify_cmap(cmap)
             seen[cmap.name] = kind
             lightness = cmap_lightness(cmap)
