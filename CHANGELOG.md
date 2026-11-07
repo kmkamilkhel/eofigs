@@ -30,7 +30,8 @@ uses [Semantic Versioning](https://semver.org/).
   from CF attributes and writes CF units in mathtext.
 - `fit_raster`: reduces GeoTIFFs, COGs and xarray rasters to the printed resolution (mean,
   mode or mask fraction), ignores nodata, sets sparse pixels to NaN (`min_valid`), keeps the
-  CRS, stays lazy with dask, and reads files at the output size.
+  CRS, stays lazy with dask, and reads files at the output size (integer files are averaged
+  exactly by eofigs).
 - Project structure, packaging, test and documentation workflows.
 - Container image workflow for GitHub Container Registry (development `dev` tag); release tags build
   a multi-architecture image (amd64 and arm64).

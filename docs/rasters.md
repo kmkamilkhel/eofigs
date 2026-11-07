@@ -45,9 +45,9 @@ GeoTIFFs and COGs are read with rasterio at the output size, so GDAL uses the fi
 overviews when it has them and never loads the full-resolution array: a 10 000 x 10 000
 GeoTIFF without overviews is reduced to a double-column map (4488 x 4488 pixels at 600 dpi)
 in about 1.5 seconds. Pre-built overviews keep the resampling they were built with (often
-nearest or average), which then applies instead of `kind`. For 8-bit files, averages are
-computed exactly by eofigs, a few rows at a time, because GDAL rounds averages of 8-bit
-data to whole numbers.
+nearest or average), which then applies instead of `kind`. For integer files (for example
+8-bit masks or 16-bit DEMs), averages are computed exactly by eofigs, a few rows at a time,
+because some GDAL versions round averages of integer data to whole numbers.
 
 xarray inputs, including dask-backed arrays from `rioxarray.open_rasterio(..., chunks=True)`,
 are aggregated by an integer factor and stay lazy; up to factor - 1 edge rows and columns

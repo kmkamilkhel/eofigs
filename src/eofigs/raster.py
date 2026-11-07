@@ -110,7 +110,9 @@ def fit_raster(
     Files are read with ``rasterio`` at the output size, so GDAL uses overviews when the
     file has them and never loads the full-resolution array. Pre-built overviews keep
     the resampling they were built with (often nearest or average), which then applies
-    instead of ``kind``. Arrays are aggregated by an integer factor; up to factor - 1
+    instead of ``kind``. Integer files with continuous or mask data are averaged exactly by
+    eofigs, a few rows at a time, because some GDAL versions round integer averages.
+    Arrays are aggregated by an integer factor; up to factor - 1
     edge rows and columns (less than one printed pixel) are dropped so the grid stays
     regular.
 
@@ -281,8 +283,8 @@ def _fit_file(
         factor = _factor(src.height, src.width, width_px, height_px)
         dtype = np.dtype(src.dtypes[band - 1])
         out_dtype = "float32" if dtype.itemsize <= 4 else "float64"
-        if factor > 1 and dtype == np.uint8 and method != "categorical":
-            # GDAL rounds averages of 8-bit data to integers; aggregate exactly in strips
+        if factor > 1 and np.issubdtype(dtype, np.integer) and method != "categorical":
+            # GDAL may round averages of integer data (version-dependent); aggregate exactly
             array, transform = _read_strips(src, band, int(math.floor(factor)), min_valid)
         else:
             array, transform = _read_gdal(src, band, factor, method, min_valid)

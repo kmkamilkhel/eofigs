@@ -76,7 +76,11 @@ packages = ["src/eofigs"]
 [tool.pytest.ini_options]
 testpaths = ["src", "tests"]
 addopts = "-ra --strict-markers --doctest-modules -m \"not slow\""
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # older rioxarray releases (the newest need Python 3.13) compose transforms with "*"
+    "ignore:Use `@` matmul instead of:PendingDeprecationWarning",
+]
 markers = ["slow: long-running performance tests"]
 
 [tool.coverage.run]
