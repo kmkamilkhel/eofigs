@@ -28,7 +28,11 @@ BAND = 500  # m
 
 
 def tree_cover_by_elevation():
-    """Mean tree cover (%) inside the outline per elevation band, for bands with data."""
+    """Mean tree cover (%) inside the outline per elevation band.
+
+    Bands cover at least 0.5 % of the area; the bands above the highest one with at least
+    0.5 % mean tree cover are left out, so the axis ends where the forest does.
+    """
     outline = gpd.read_file(DATA / "swat_boundary.geojson")
     dem = rioxarray.open_rasterio(DATA / "swat_dem_90m.tif", masked=True).squeeze()
     cover = rioxarray.open_rasterio(DATA / "swat_tree_cover_90m.tif", masked=True).squeeze()
@@ -41,7 +45,8 @@ def tree_cover_by_elevation():
     counts = np.array([(band == b).sum() for b in lows])
     lows = lows[counts >= 0.005 * counts.sum()]  # bands with at least 0.5 % of the area
     means = np.array([tc[keep][band == b].mean() for b in lows])
-    return lows, means
+    top = np.nonzero(means >= 0.5)[0].max() + 1  # end at the highest band with tree cover
+    return lows[:top], means[:top]
 
 
 def two_panels():

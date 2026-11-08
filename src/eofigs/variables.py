@@ -14,6 +14,8 @@ import cmcrameri.cm  # noqa: F401  (registers the "cmc.*" colour maps)
 import matplotlib as mpl
 from matplotlib.colors import Colormap
 
+import eofigs.palettes  # noqa: F401  (registers the "eofigs.*" colour maps)
+
 KINDS = ("continuous", "diverging", "categorical", "mask")
 PER_UNITS = {"year": "yr", "decade": "decade"}
 

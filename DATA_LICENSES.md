@@ -61,7 +61,20 @@ Six towns from [GeoNames](https://www.geonames.org/), licensed under
 [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: selected by name and
 reprojected to UTM zone 43N.
 
+### `docs/data/swat/swat_ndvi_growing_season_500m.tif`: MODIS MOD13A1
+
+Derived from MODIS Terra Vegetation Indices 16-Day L3 Global 500 m, version 6.1 (MOD13A1;
+Didan 2021, doi:10.5067/MODIS/MOD13A1.061), distributed by the NASA EOSDIS Land Processes
+Distributed Active Archive Center (LP DAAC) and accessed through the Microsoft Planetary
+Computer. NASA data have no restrictions on reuse, sale or redistribution; the citation
+above is requested. Changed: May–September median NDVI per year of the composites with pixel
+reliability 0 or 1 (at least three per year), reprojected to UTM zone 43N at 500 m.
+
 ## References
+
+- Didan, K. (2021). MODIS/Terra Vegetation Indices 16-Day L3 Global 500m SIN Grid V061.
+  NASA EOSDIS Land Processes Distributed Active Archive Center.
+  https://doi.org/10.5067/MODIS/MOD13A1.061
 
 - Runfola, D., et al. (2020). geoBoundaries: A global database of political administrative
   boundaries. *PLoS ONE* 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866

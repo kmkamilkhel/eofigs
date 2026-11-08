@@ -46,6 +46,8 @@
 
 ::: eofigs.trend
 
+::: eofigs.trend_map
+
 ## Figure sets
 
 ::: eofigs.figure_set
