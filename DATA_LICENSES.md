@@ -70,7 +70,24 @@ Computer. NASA data have no restrictions on reuse, sale or redistribution; the c
 above is requested. Changed: May–September median NDVI per year of the composites with pixel
 reliability 0 or 1 (at least three per year), reprojected to UTM zone 43N at 500 m.
 
+### `docs/data/swat/swat_ndvi_monthly_1km.tif`: MODIS MOD13A1
+
+From the same MODIS MOD13A1 v6.1 product (Didan 2021). Changed: monthly median NDVI
+2001–2021 of the composites with pixel reliability 0 or 1, reprojected to UTM zone 43N,
+averaged to 1 km and limited to the outline plus 2 km.
+
+### `docs/data/swat/swat_terraclimate_monthly.csv` and `swat_hot_dry_events.csv`: TerraClimate
+
+Derived from TerraClimate (Abatzoglou et al. 2018, doi:10.1038/sdata.2017.191), released
+under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) and accessed through the
+Microsoft Planetary Computer. Changed: Swat-mean monthly maximum temperature and
+precipitation 2001–2021, their z-scores per calendar month, and the hot-dry event table.
+
 ## References
+
+- Abatzoglou, J. T., Dobrowski, S. Z., Parks, S. A., & Hegewisch, K. C. (2018). TerraClimate,
+  a high-resolution global dataset of monthly climate and climatic water balance from
+  1958–2015. *Scientific Data* 5: 170191. https://doi.org/10.1038/sdata.2017.191
 
 - Didan, K. (2021). MODIS/Terra Vegetation Indices 16-Day L3 Global 500m SIN Grid V061.
   NASA EOSDIS Land Processes Distributed Active Archive Center.
