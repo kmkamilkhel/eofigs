@@ -1,0 +1,14 @@
+{
+"type": "FeatureCollection",
+"name": "swat_towns",
+"crs": { "type": "name", "properties": { "name": "urn:ogc:def:crs:EPSG::32643" } },
+"xy_coordinate_resolution": 1,
+"features": [
+{"type":"Feature","properties":{"name":"Mingora","geonameid":1170395,"population":361112},"geometry":{"type":"Point","coordinates":[258664,3851761]}},
+{"type":"Feature","properties":{"name":"Saidu Sharif","geonameid":1166475,"population":0},"geometry":{"type":"Point","coordinates":[257929,3848122]}},
+{"type":"Feature","properties":{"name":"Matta","geonameid":1391072,"population":0},"geometry":{"type":"Point","coordinates":[254971,3887037]}},
+{"type":"Feature","properties":{"name":"Khwazakhela","geonameid":1173644,"population":0},"geometry":{"type":"Point","coordinates":[268710,3868747]}},
+{"type":"Feature","properties":{"name":"Bahrain","geonameid":1183846,"population":0},"geometry":{"type":"Point","coordinates":[276845,3899003]}},
+{"type":"Feature","properties":{"name":"Kalam","geonameid":1175334,"population":0},"geometry":{"type":"Point","coordinates":[280278,3929171]}}
+]
+}

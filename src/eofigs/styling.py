@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import string
 import warnings
 from collections.abc import Iterator, Sequence
@@ -17,6 +18,7 @@ from matplotlib import font_manager
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.text import Text
+from matplotlib.ticker import Locator
 from matplotlib.transforms import offset_copy
 
 from eofigs._colour import GRID_COLOUR, OKABE_ITO, TEXT_COLOUR
@@ -434,16 +436,57 @@ def tidy_axes(*items: Any, max_ticks: int | None = None) -> None:
             tidy_axes(*np.ravel(np.asarray(item, dtype=object)), max_ticks=max_ticks)
 
 
-def _round_locator(max_ticks: int):
-    from matplotlib.ticker import MaxNLocator
+def round_ticks(low: float, high: float, min_n: int = 4, max_n: int = 5) -> np.ndarray:
+    """Round tick values between ``low`` and ``high``: ``min_n`` to ``max_n`` if possible.
 
-    return MaxNLocator(nbins=max_ticks - 1, steps=list(TICK_STEPS), min_n_ticks=2)
+    Steps are 1, 2, 2.5 or 5 times a power of ten; among steps giving a count in range
+    the largest is used, otherwise the step whose count comes closest.
+
+    Examples
+    --------
+    >>> from eofigs.styling import round_ticks
+    >>> round_ticks(640, 4870).tolist()
+    [1000.0, 2000.0, 3000.0, 4000.0]
+    """
+    if not high > low:
+        return np.array([low])
+    top = math.floor(math.log10(high - low))
+    best = None
+    for power in range(top - 2, top + 1):
+        for m in sorted(TICK_STEPS[:-1], reverse=True):
+            step = m * 10.0**power
+            start, stop = math.ceil(low / step - 1e-9), math.floor(high / step + 1e-9)
+            n = stop - start + 1
+            miss = 0 if min_n <= n <= max_n else min(abs(n - min_n), abs(n - max_n))
+            key = (miss, -step)
+            if best is None or key < best[0]:
+                best = (key, np.round(np.arange(start, stop + 1) * step, 12))
+    return best[1]
+
+
+class _RoundLocator(Locator):
+    """Ticks at round values inside the view: 4 to ``max_ticks`` of them where possible."""
+
+    def __init__(self, max_ticks: int):
+        self.max_ticks = max_ticks
+
+    def __call__(self):
+        vmin, vmax = self.axis.get_view_interval()
+        return self.tick_values(vmin, vmax)
+
+    def tick_values(self, vmin, vmax):
+        low, high = sorted((float(vmin), float(vmax)))
+        return round_ticks(low, high, min(4, self.max_ticks), self.max_ticks)
+
+
+def _round_locator(max_ticks: int):
+    return _RoundLocator(max_ticks)
 
 
 def _is_auto_locator(locator) -> bool:
     from matplotlib.ticker import AutoLocator, MaxNLocator
 
-    return type(locator) in (AutoLocator, MaxNLocator)
+    return type(locator) in (AutoLocator, MaxNLocator, _RoundLocator)
 
 
 def _is_map_axes(ax: Axes) -> bool:

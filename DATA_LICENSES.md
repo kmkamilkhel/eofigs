@@ -1,0 +1,70 @@
+# Data licences
+
+The eofigs **code** is released under the MIT licence (see [LICENSE](LICENSE)). The data
+files listed here keep their own licences.
+
+## Bundled with the package
+
+| File | Source | Licence |
+|---|---|---|
+| `src/eofigs/data/ne_110m_countries.geojson` | [Natural Earth](https://www.naturalearthdata.com/) 1:110m admin-0 countries, version 5.1.2 (default, de facto boundaries); attributes reduced to code and name, coordinates rounded to 0.001° | Public domain. No permission is needed; "Made with Natural Earth" is appreciated. |
+
+Worldview boundaries that eofigs downloads on request (`worldview=` in `add_inset` and
+`study_area_map`) are Natural Earth 1:10m admin-0 point-of-view layers, version 5.1.2,
+also public domain. They are stored in the user's cache folder, not in the package.
+
+Boundaries and names shown do not imply any opinion on the legal status of any country or
+territory.
+
+## Documentation sample data (`docs/data/`)
+
+These files are in the GitHub repository and used by the documentation and gallery. They
+are **not** part of the installed package (wheel) or the source distribution.
+
+### `docs/data/swat/swat_dem_90m.tif`: Copernicus DEM GLO-90
+
+Derived from the Copernicus DEM GLO-90 (COP-DEM-GLO-90-F, DOI 10.5270/ESA-c5d3d65) under
+the "Licence for COP-DEM-GLO-90-F Global 90m Full, Free & Open". The tiles were mosaicked,
+reprojected and resampled (see `docs/data/swat/README.md`), so the notice for adapted data
+applies:
+
+> produced using Copernicus WorldDEM™-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space
+> GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.
+
+> The organisations in charge of the Copernicus programme by law or by delegation do not
+> incur any liability for any use of the Copernicus WorldDEM™-90.
+
+Anyone who redistributes this file, modified or not, is bound by the same obligations
+(Article 6 of the licence): give the notice above, keep the no-liability sentence, do not
+suggest endorsement by the Copernicus programme, and pass these obligations on.
+
+### `docs/data/swat/swat_tree_cover_90m.tif`: ESA WorldCover 2021
+
+Derived from ESA WorldCover 10 m 2021 v200 (Zanaga et al. 2022,
+doi:10.5281/zenodo.7254221), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: share of class 10
+(tree cover) pixels in each 90 m cell.
+
+> © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021)
+> processed by ESA WorldCover consortium
+
+### `docs/data/swat/swat_boundary.geojson`: geoBoundaries
+
+Swat district outline from geoBoundaries gbOpen PAK ADM2 (boundary year 2019; Runfola et al.
+2020, doi:10.1371/journal.pone.0231866), public domain. It shows the **former Swat district
+(before January 2026), now Swat and Bar Swat**. Reprojected to UTM zone 43N and simplified
+by 20 m.
+
+### `docs/data/swat/swat_towns.geojson`: GeoNames
+
+Six towns from [GeoNames](https://www.geonames.org/), licensed under
+[CC BY 4.0](https://creativecommons.org/licenses/by/4.0/). Changed: selected by name and
+reprojected to UTM zone 43N.
+
+## References
+
+- Runfola, D., et al. (2020). geoBoundaries: A global database of political administrative
+  boundaries. *PLoS ONE* 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866
+- Zanaga, D., et al. (2022). ESA WorldCover 10 m 2021 v200. Zenodo.
+  https://doi.org/10.5281/zenodo.7254221
+- European Space Agency, Airbus (2022). Copernicus DEM. https://doi.org/10.5270/ESA-c5d3d65

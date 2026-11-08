@@ -132,6 +132,34 @@ def test_tidy_axes_limits_ticks_to_round_values(sans_font):
     assert len(bar.get_ticks()) <= 5
 
 
+@pytest.mark.parametrize(
+    ("low", "high", "expected"),
+    [
+        (640, 4870, [1000, 2000, 3000, 4000]),
+        (500, 4500, [1000, 2000, 3000, 4000]),
+        (0, 1, [0, 0.25, 0.5, 0.75, 1]),
+        (-3.3, 7.1, [-2.5, 0, 2.5, 5]),
+        (0, 0.93, [0, 0.25, 0.5, 0.75]),
+        (2, 2, [2]),
+    ],
+)
+def test_round_ticks(low, high, expected):
+    from eofigs.styling import round_ticks
+
+    assert round_ticks(low, high).tolist() == pytest.approx(expected)
+
+
+def test_tidy_axes_gives_four_or_five_ticks_inside_the_view(sans_font):
+    with eofigs.style("custom", font=sans_font):
+        fig, ax = eofigs.new_figure("single")
+        ax.barh([750, 4250], [10, 20], height=400)
+        ax.set_ylim(500, 4500)
+        eofigs.tidy_axes(ax)
+    assert ax.get_yticks().tolist() == [1000, 2000, 3000, 4000]
+    eofigs.tidy_axes(ax)  # tidying twice changes nothing
+    assert ax.get_yticks().tolist() == [1000, 2000, 3000, 4000]
+
+
 def test_tick_rule_is_a_style_setting(sans_font):
     def figure(**style):
         with eofigs.style("custom", font=sans_font, **style):

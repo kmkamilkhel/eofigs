@@ -140,7 +140,9 @@ def check_figure(
     or direct labels. Colour maps are classified first; sequential maps need monotonic
     lightness, diverging maps monotonic lightness on each side of the centre, cyclic and
     categorical maps are exempt, and rainbow-type maps (jet, rainbow, hsv, turbo, ...)
-    fail.
+    fail. Overlays drawn in one colour (for example forest on a map) are compared with the
+    colour maps drawn beneath them, as they appear on the page with their transparency,
+    using the same thresholds; greyscale shading is not compared.
 
     Examples
     --------
@@ -241,6 +243,9 @@ def _check_live(
         _categorical_result(fig),
         _cmap_result(fig),
     ]
+    overlay = _overlay_result(fig)
+    if overlay is not None:
+        results.append(overlay)
     if max_ticks is not None:
         results.append(_tick_result(fig, max_ticks))
     return results
@@ -398,6 +403,88 @@ def _categorical_result(fig: Figure) -> CheckResult:
     )
 
 
+def _single_colour(image) -> tuple[float, float, float, float] | None:
+    """Colour of an image drawn in one colour (a one-colour colour map), else None."""
+    cmap = image.get_cmap()
+    if cmap.N > 1 or image.get_array() is None:
+        return None
+    return tuple(float(v) for v in cmap(0.5))
+
+
+def _alpha(image) -> float:
+    alpha = image.get_alpha()
+    return 1.0 if alpha is None or np.ndim(alpha) else float(alpha)
+
+
+def overlay_contrast(
+    colour, alpha: float, cmap, cmap_alpha: float, n: int = 64
+) -> dict[str, float]:
+    """Smallest CIEDE2000 difference between an overlay colour and a colour map's colours.
+
+    Both are composited over white with their transparency, as they appear on the page,
+    and compared in normal vision and under simulated protan, deutan and tritan vision.
+    """
+    overlay = np.array(_composite((*mpl.colors.to_rgb(colour), alpha)))
+    samples = cmap(np.linspace(0, 1, n))[:, :3]
+    base = samples * cmap_alpha + (1 - cmap_alpha)
+    result = {}
+    for view in ("normal", "protan", "deutan", "tritan"):
+        a = overlay[None] if view == "normal" else simulate_cvd(overlay[None], view)
+        b = base if view == "normal" else simulate_cvd(base, view)
+        lab_a, lab_b = to_lab(a)[0], to_lab(b)
+        result[view] = min(delta_e2000(lab_a, lab) for lab in lab_b)
+    return result
+
+
+def _is_grey(cmap) -> bool:
+    lab = to_lab(cmap(np.linspace(0, 1, 32))[:, :3])
+    return bool(np.hypot(lab[:, 1], lab[:, 2]).max() < 5)
+
+
+def _overlay_result(fig: Figure) -> CheckResult | None:
+    """Single-colour overlays must stay distinguishable from the colour maps beneath them."""
+    pairs, close = 0, []
+    worst: dict[str, float] = {}
+    for ax in fig.axes:
+        images = ax.get_images()
+        for top in images:
+            colour = _single_colour(top)
+            if colour is None or not top.get_visible():
+                continue
+            for base in images:
+                if (
+                    base is top
+                    or base.get_zorder() >= top.get_zorder()
+                    or not _is_colour_mapped(base)
+                    or base.get_cmap().N <= 1
+                    or _is_grey(base.get_cmap())
+                ):
+                    continue
+                pairs += 1
+                diff = overlay_contrast(colour[:3], _alpha(top), base.get_cmap(), _alpha(base))
+                for view, value in diff.items():
+                    worst[view] = min(worst.get(view, np.inf), value)
+                    threshold = DE_NORMAL if view == "normal" else DE_CVD
+                    if value < threshold:
+                        close.append(f"{mpl.colors.to_hex(colour)} on {base.get_cmap().name} "
+                                     f"{view} {value:.1f}")  # fmt: skip
+    if not pairs:
+        return None
+    summary = ", ".join(f"{k} {v:.1f}" for k, v in worst.items())
+    if close:
+        return CheckResult(
+            "overlay contrast",
+            "warn",
+            "An overlay colour is close to colours of the map beneath it "
+            f"({'; '.join(close[:4])}). Choose an overlay colour or a colour map that differ more.",
+        )
+    return CheckResult(
+        "overlay contrast",
+        "pass",
+        f"Overlay distinguishable from the colour map (min dE00 {summary}).",
+    )
+
+
 def _cmap_result(fig: Figure) -> CheckResult:
     problems, seen = [], {}
     for ax in fig.axes:
@@ -436,6 +523,8 @@ def _cmap_result(fig: Figure) -> CheckResult:
 
 def _tick_count(axis) -> int:
     """Count the non-empty major tick labels shown inside the view interval."""
+    if not axis.get_visible():  # for example map axes, labelled by their graticule
+        return 0
     params = axis.get_tick_params(which="major")
     sides = ("labelbottom", "labeltop") if axis.axis_name == "x" else ("labelleft", "labelright")
     if not any(params.get(side, side in ("labelbottom", "labelleft")) for side in sides):

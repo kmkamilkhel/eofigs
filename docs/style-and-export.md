@@ -61,9 +61,10 @@ outside the top-left corner of each panel, and turns on the tick rule (below). A
 
 ## Ticks and dense layers
 
-- `tidy_axes(ax, colour_bar, ...)` limits each axis and colour bar to a few ticks at round
-  values (1, 2, 2.5 and 5 times a power of ten): five, or the `max_ticks` set with
-  `set_style`. Ticks set explicitly, log axes and map axes are left alone; date axes get
+- `tidy_axes(ax, colour_bar, ...)` gives each axis and colour bar four or five ticks at
+  round values (1, 2, 2.5 and 5 times a power of ten) inside the axis range, for example
+  1000 to 4000 m on an elevation axis from 500 to 4500 m; at most five, or the `max_ticks`
+  set with `set_style`. Ticks set explicitly, log axes and map axes are left alone; date axes get
   concise date labels. Every eofigs recipe calls it.
 - `set_style(max_ticks=5)` makes a tick limit a house rule: `check_figure` then warns about
   axes with more tick labels. Without it (the default) ticks are not checked, because the

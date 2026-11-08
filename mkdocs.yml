@@ -27,6 +27,13 @@ theme:
 hooks:
   - docs/hooks/gallery.py
 
+# sample data (distributed with its licence in the repository), build scripts and hooks
+# are not part of the site
+exclude_docs: |
+  data/
+  scripts/
+  hooks/
+
 nav:
   - Home: index.md
   - Gallery: gallery/index.md
@@ -36,6 +43,7 @@ nav:
   - Journal presets: journals.md
   - Variables: variables.md
   - Large rasters: rasters.md
+  - Study area maps: study-area.md
   - Trends: trends.md
   - Figure sets: figure-sets.md
   - API reference: api.md

@@ -1,7 +1,8 @@
 """MkDocs hook that builds the example gallery from examples/*.py.
 
 Each example is a script whose module docstring holds the title (first line) and the
-caption (the rest), and which leaves the finished figure in a variable named ``fig``.
+caption (the rest), and which leaves the finished figure in a variable named ``fig`` (or
+several, shown side by side, in a dict ``figures = {label: fig}``).
 During the docs build every example is run; for each one the hook adds to the site:
 
 - ``gallery/<slug>.md``: figure, caption, downloads, the check report and the code;
@@ -46,6 +47,16 @@ _FONT_WARNING = r"Font .* is not installed"
 
 
 @dataclass
+class Panel:
+    """One figure of a gallery entry."""
+
+    label: str
+    name: str
+    report: str
+    status: str
+
+
+@dataclass
 class Example:
     """One built gallery entry."""
 
@@ -54,8 +65,7 @@ class Example:
     caption: str
     code: str
     files: dict[str, bytes]
-    report: str
-    status: str
+    panels: list[Panel]
 
 
 _CACHE: dict[tuple[str, int], Example] = {}
@@ -77,12 +87,40 @@ def _split_docstring(source: str) -> tuple[str, str, str]:
     return title.strip().rstrip("."), " ".join(caption.split()), code
 
 
+def _figures(namespace: dict, path: Path) -> list[tuple[str, matplotlib.figure.Figure]]:
+    """Return the example's figure (``fig``) or labelled figures (``figures``)."""
+    figures = namespace.get("figures")
+    if figures is None:
+        fig = namespace.get("fig")
+        if not isinstance(fig, matplotlib.figure.Figure):
+            raise PluginError(
+                f"{path.name} must leave its figure in a variable named fig "
+                "(or several in a dict named figures)."
+            )
+        return [("", fig)]
+    return list(figures.items())
+
+
+def _thumbnail(images: list[bytes]) -> bytes:
+    from PIL import Image
+
+    card = Image.new("RGB", THUMB_SIZE, "white")
+    slot_w = THUMB_SIZE[0] // len(images)
+    for i, data in enumerate(images):
+        with Image.open(io.BytesIO(data)) as image:
+            image = image.convert("RGB")
+            image.thumbnail((slot_w - 6, THUMB_SIZE[1]))
+            card.paste(image, (i * slot_w + (slot_w - image.width) // 2,
+                               (THUMB_SIZE[1] - image.height) // 2))  # fmt: skip
+    out = io.BytesIO()
+    card.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
 def _run(path: Path) -> Example:
     key = (str(path), path.stat().st_mtime_ns)
     if key in _CACHE:
         return _CACHE[key]
-    from PIL import Image
-
     import eofigs
     from eofigs import styling
 
@@ -90,39 +128,32 @@ def _run(path: Path) -> Example:
     title, caption, code = _split_docstring(source)
     slug = _slug(path)
     saved_state = dict(styling._STATE)
+    files: dict[str, bytes] = {f"files/{slug}.py": source.encode("utf-8")}
+    panels: list[Panel] = []
+    web_images: list[bytes] = []
     try:
         with mpl.rc_context(), warnings.catch_warnings():
             warnings.filterwarnings("ignore", message=_FONT_WARNING, category=UserWarning)
             namespace = runpy.run_path(str(path), run_name="__gallery__")
-            fig = namespace.get("fig")
-            if not isinstance(fig, matplotlib.figure.Figure):
-                raise PluginError(f"{path.name} must leave its figure in a variable named fig.")
-            with tempfile.TemporaryDirectory() as tmp:
-                report = eofigs.save_figure(fig, Path(tmp) / slug, formats=("pdf", "png"))
-                files = {
-                    f"files/{slug}.pdf": (Path(tmp) / f"{slug}.pdf").read_bytes(),
-                    f"files/{slug}_600dpi.png": (Path(tmp) / f"{slug}.png").read_bytes(),
-                }
-            web = io.BytesIO()
-            fig.savefig(web, format="png", dpi=WEB_DPI)
-            files[f"images/{slug}.png"] = web.getvalue()
-            with Image.open(io.BytesIO(web.getvalue())) as image:
-                image = image.convert("RGB")
-                image.thumbnail(THUMB_SIZE)
-                card = Image.new("RGB", THUMB_SIZE, "white")
-                card.paste(image, ((THUMB_SIZE[0] - image.width) // 2,
-                                   (THUMB_SIZE[1] - image.height) // 2))  # fmt: skip
-                thumb = io.BytesIO()
-                card.save(thumb, format="PNG", optimize=True)
-            files[f"thumbs/{slug}.png"] = thumb.getvalue()
-            files[f"files/{slug}.py"] = source.encode("utf-8")
-            checked = eofigs.check_figure(fig)
-            figure_report = str(checked)
-            status = "success"
-            if not checked.passed:
-                status = "failure"
-            elif checked.warnings:
-                status = "warning"
+            figures = _figures(namespace, path)
+            for i, (label, fig) in enumerate(figures, 1):
+                name = slug if len(figures) == 1 else f"{slug}_{i}"
+                with tempfile.TemporaryDirectory() as tmp:
+                    eofigs.save_figure(fig, Path(tmp) / name, formats=("pdf", "png"), check=False)
+                    files[f"files/{name}.pdf"] = (Path(tmp) / f"{name}.pdf").read_bytes()
+                    files[f"files/{name}_600dpi.png"] = (Path(tmp) / f"{name}.png").read_bytes()
+                web = io.BytesIO()
+                fig.savefig(web, format="png", dpi=WEB_DPI)
+                files[f"images/{name}.png"] = web.getvalue()
+                web_images.append(web.getvalue())
+                checked = eofigs.check_figure(fig)
+                status = "success"
+                if not checked.passed:
+                    status = "failure"
+                elif checked.warnings:
+                    status = "warning"
+                panels.append(Panel(label, name, str(checked), status))
+            files[f"thumbs/{slug}.png"] = _thumbnail(web_images)
     except PluginError:
         raise
     except Exception as exc:  # a broken example fails the build
@@ -131,8 +162,7 @@ def _run(path: Path) -> Example:
         plt.close("all")
         styling._STATE.clear()
         styling._STATE.update(saved_state)
-    del report  # the file checks are covered by the live-figure report shown on the page
-    example = Example(slug, title, caption, code, files, figure_report, status)
+    example = Example(slug, title, caption, code, files, panels)
     _CACHE[key] = example
     return example
 
@@ -151,27 +181,40 @@ def _cards(examples: list[Example], prefix: str) -> str:
     return '<div class="grid cards" markdown>\n\n' + "\n\n".join(items) + "\n\n</div>\n"
 
 
+def _downloads(name: str, label: str) -> str:
+    suffix = f" ({label})" if label else ""
+    return (
+        f"[:material-download: PDF{suffix}](files/{name}.pdf){{ .md-button }}\n"
+        f"[:material-download: PNG, 600 dpi{suffix}](files/{name}_600dpi.png){{ .md-button }}\n"
+    )
+
+
 def _page(ex: Example) -> str:
+    if len(ex.panels) == 1:
+        figures = f"![{ex.title}](images/{ex.panels[0].name}.png)\n"
+    else:
+        cells = "\n\n".join(
+            f"-   **{p.label}**\n\n    ![{p.label}](images/{p.name}.png)" for p in ex.panels
+        )
+        figures = f'<div class="grid" markdown>\n\n{cells}\n\n</div>\n'
+    downloads = "".join(_downloads(p.name, p.label) for p in ex.panels)
+    checks = "\n".join(
+        f'??? {p.status} "Figure check{f" ({p.label})" if p.label else ""}"\n\n'
+        f"    ```text\n{_indent(p.report, 4)}\n    ```\n"
+        for p in ex.panels
+    )
     return f"""# {ex.title}
 
-![{ex.title}](images/{ex.slug}.png)
-
+{figures}
 {ex.caption}
 
 [:material-download: Script](files/{ex.slug}.py){{ .md-button }}
-[:material-download: PDF](files/{ex.slug}.pdf){{ .md-button }}
-[:material-download: PNG, 600 dpi](files/{ex.slug}_600dpi.png){{ .md-button }}
-
+{downloads}
 ```python
 {ex.code}
 ```
 
-??? {ex.status} "Figure check"
-
-    ```text
-{_indent(ex.report, 4)}
-    ```
-"""
+{checks}"""
 
 
 def _indent(text: str, n: int) -> str:

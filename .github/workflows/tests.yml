@@ -29,7 +29,7 @@ jobs:
           python -m build --wheel --outdir dist
           python -m venv /tmp/wheel-env
           /tmp/wheel-env/bin/pip install dist/*.whl
-          cd /tmp && /tmp/wheel-env/bin/python -c "import eofigs; eofigs.set_style('elsevier', font='DejaVu Sans'); fig, ax = eofigs.new_figure('double'); print('wheel ok', eofigs.__version__)"
+          cd /tmp && /tmp/wheel-env/bin/python -c "import eofigs; eofigs.set_style('elsevier', font='DejaVu Sans'); fig, ax = eofigs.new_figure('double'); from eofigs._countries import countries; assert len(countries()) == 177; print('wheel ok', eofigs.__version__)"
 
   citation:
     name: citation
@@ -63,8 +63,20 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y fonts-liberation fonts-texgyre fonts-croscore
       - name: Install package
         run: pip install -e ".[test]"
-      - name: Run tests
-        run: pytest --cov --cov-report=term-missing
+      - name: Run tests (with image comparisons on Linux, Python 3.14)
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ] && [ "${{ matrix.python-version }}" = "3.14" ]; then
+            pytest --cov --cov-report=term-missing --mpl --mpl-results-path=mpl-results
+          else
+            pytest --cov --cov-report=term-missing
+          fi
+      - name: Upload image comparison results
+        if: failure() && runner.os == 'Linux' && matrix.python-version == '3.14'
+        uses: actions/upload-artifact@v7
+        with:
+          name: mpl-results
+          path: mpl-results
+          if-no-files-found: ignore
       - name: Run performance tests (one job)
         if: runner.os == 'Linux' && matrix.python-version == '3.14'
         run: pytest -m slow -s --no-cov
