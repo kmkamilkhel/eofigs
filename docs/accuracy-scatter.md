@@ -125,6 +125,20 @@ limit, for example, keeps 2 124 segments with a median DEM slope of 1° (against
 whole valley) and an RMSE of 4.2 m, an optimistic picture of the DEM's accuracy in
 mountains. The stored sample keeps the steep terrain (median slope 20°).
 
+The minimum number of terrain photons has a similar, weaker effect, because steep and
+forested segments return fewer ground photons. With the other rules applied (strong beams,
+snow-free, `msw_flag` = 0, inside the outline, DEM values available):
+
+| Minimum terrain photons | Segments | Median DEM slope |
+|---|---|---|
+| none | 30 797 | 20.4° |
+| **10 (used)** | **27 619** | **19.6°** |
+| 30 | 17 013 | 15.8° |
+| 50 | 10 476 | 11.0° |
+
+A minimum of 10 drops the sparsest terrain fits while keeping the slope mix of the valley;
+stricter minimums again favour gentle slopes.
+
 Over a 4 km elevation range, metre-level differences are invisible in a scatter: the
 points lie on the 1:1 line and R² rounds to 1.00, so panel (b) shows the errors themselves.
 In the sample the DEM is on average 4.3 m above ICESat-2 (RMSE 11.7 m, NMAD 7.6 m). The

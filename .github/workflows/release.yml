@@ -16,8 +16,11 @@ jobs:
         run: |
           version=$(python -c "import re;print(re.search(r'__version__ = \"(.+?)\"', open('src/eofigs/__init__.py').read()).group(1))")
           test "v${version}" = "${GITHUB_REF_NAME}" || { echo "Tag ${GITHUB_REF_NAME} does not match version ${version}"; exit 1; }
-      - run: pip install build
+      - run: pip install build twine
       - run: python -m build
+      - run: twine check --strict dist/*
+      - name: Check the contents of the wheel and the source distribution
+        run: python .github/scripts/check_dist.py dist
       - uses: actions/upload-artifact@v7
         with:
           name: dist

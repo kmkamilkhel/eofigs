@@ -2,9 +2,6 @@
 
 Analysis-aware, publication-ready figures for Earth observation research.
 
-!!! note "Under development"
-    The first release is v0.1. This site grows with each function as it is added.
-
 eofigs turns Earth observation analysis outputs (rasters, time series, validation pairs) into
 journal-ready figures that know the analysis, the variable and the printed size.
 
@@ -15,6 +12,9 @@ journal-ready figures that know the analysis, the variable and the printed size.
   width in mm and its dpi.
 - **Journal presets and one-call export** to vector PDF plus 600 dpi PNG or TIFF, with a figure
   check.
+
+Start with the [Installation](installation.md) and the [Quickstart](quickstart.md); worked examples with real data are in the
+[Gallery](gallery/index.md).
 
 ## Gallery
 

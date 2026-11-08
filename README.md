@@ -6,8 +6,6 @@
 
 Analysis-aware, publication-ready figures for Earth observation research.
 
-> **Under development. First release: v0.1.**
-
 eofigs turns Earth observation analysis outputs (rasters, time series, validation pairs) into
 journal-ready figures that know the analysis, the variable and the printed size:
 
@@ -55,25 +53,46 @@ each figure.
 
 ## Installation
 
-The first release is not yet on PyPI. To try the development version:
-
 ```bash
-pip install git+https://github.com/kmkamilkhel/eofigs.git
+pip install eofigs
 ```
+
+eofigs needs Python 3.11 or newer. On Windows and macOS, conda-forge is the simplest source
+of its geospatial libraries; see the
+[installation guide](https://kmkamilkhel.github.io/eofigs/installation/).
+
+## Quick start
+
+```python
+import numpy as np
+import eofigs
+
+eofigs.set_style("elsevier")  # fonts, sizes and widths of the journal
+rng = np.random.default_rng(1)
+field = rng.gamma(5, 30, 300)  # observed aboveground biomass (Mg ha⁻¹)
+model = 0.9 * field + rng.normal(10, 20, 300)  # predicted
+fig = eofigs.accuracy_scatter(field, model, variable="agb")
+print(fig.eofigs_layout["caption"])  # a ready caption sentence
+print(eofigs.check_figure(fig))  # size, dpi, smallest font, fonts, colour-blind safety
+eofigs.save_figure(fig, "fig_agb")  # vector PDF and a 600 dpi raster
+```
+
+More in the [quickstart](https://kmkamilkhel.github.io/eofigs/quickstart/) and the
+[gallery](https://kmkamilkhel.github.io/eofigs/gallery/).
 
 ## Run with Docker
 
 A container image with eofigs and its geospatial stack (cartopy, rioxarray, geopandas, fonts)
-is published on GitHub Container Registry. Until v0.1 it is a **development image** (`dev` tag),
-rebuilt from the main branch:
+is published on GitHub Container Registry for each release (`0.1.0`, `latest`; `dev` follows
+the main branch):
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.0 python script.py
 ```
 
 ## Roadmap
 
-Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
+Available in v0.1: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
 `register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
 `add_north_arrow`, `add_scale_bar`, `add_inset`, `trend_map`, `event_composite` and
