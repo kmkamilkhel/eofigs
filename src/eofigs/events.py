@@ -932,7 +932,7 @@ def _draw_series(ax, composite, used, var, times, small, size) -> dict[str, Any]
 
 
 def _round(value) -> float | None:
-    return None if not np.isfinite(value) else round(float(value), 4)
+    return None if not np.isfinite(value) else round(float(value), 4) + 0.0  # no "-0.0"
 
 
 # ============================================================================ caption
