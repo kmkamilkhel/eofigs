@@ -6,6 +6,12 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-08
+
+First release: journal styles and one-call export, the figure check, figure sets, the
+variable library, print-size raster handling and trend statistics, with four recipe
+figures: study area map, trend map, event composite and accuracy scatter.
+
 ### Added
 
 - `study_area_map`: study area outline over a grey hillshade with semi-transparent
@@ -110,12 +116,13 @@ uses [Semantic Versioning](https://semver.org/).
 - `figure_set` and `FigureSet`: manuscript figures saved as `Fig01_<name>` / `FigS01_<name>`
   in the journal's formats, reordering with file renaming, and `figures_manifest.csv` with
   sizes, resolution, check results and captions; resumes from the manifest.
-
-### Changed
-
-- `check_figure` ignores single-colour contour lines when checking colour maps.
-- Project structure, packaging, test and documentation workflows.
+- `check_figure` treats single-colour contour lines as lines, not as colour maps.
+- Project structure, packaging, test and documentation workflows, with a check of the
+  built wheel and source distribution and an install test on Linux, Windows and macOS.
 - Container image workflow for GitHub Container Registry (development `dev` tag); release tags build
   a multi-architecture image (amd64 and arm64).
 - Code of conduct (Contributor Covenant 2.1), issue templates, pull request template.
 - Citation file validation and coverage total in continuous integration.
+
+[Unreleased]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/kmkamilkhel/eofigs/releases/tag/v0.1.0

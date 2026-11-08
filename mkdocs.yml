@@ -38,6 +38,7 @@ nav:
   - Home: index.md
   - Gallery: gallery/index.md
   - Installation: installation.md
+  - Quickstart: quickstart.md
   - Style and export: style-and-export.md
   - Colours: colours.md
   - Journal presets: journals.md
@@ -51,6 +52,7 @@ nav:
   - Figure sets: figure-sets.md
   - API reference: api.md
   - Changelog: changelog.md
+  - Citation: citation.md
 
 plugins:
   - search
