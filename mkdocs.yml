@@ -47,6 +47,7 @@ nav:
   - Trends: trends.md
   - Trend maps: trend-map.md
   - Event composites: event-composite.md
+  - Accuracy scatters: accuracy-scatter.md
   - Figure sets: figure-sets.md
   - API reference: api.md
   - Changelog: changelog.md

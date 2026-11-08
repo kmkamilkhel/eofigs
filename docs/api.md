@@ -52,6 +52,10 @@
 
 ::: eofigs.event_composite
 
+## Accuracy scatters
+
+::: eofigs.accuracy_scatter
+
 ## Figure sets
 
 ::: eofigs.figure_set

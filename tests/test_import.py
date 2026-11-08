@@ -14,6 +14,7 @@ def test_public_api():
         "FigureSet",
         "Variable",
         "__version__",
+        "accuracy_scatter",
         "add_inset",
         "add_north_arrow",
         "add_scale_bar",
