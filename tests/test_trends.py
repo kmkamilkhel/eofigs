@@ -154,7 +154,15 @@ def test_hatching_instead_of_dots(custom_style):
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(0.0731, 0.08), (0.08, 0.08), (0.0101, 0.012), (3.2, 4.0), (0.95, 1.0), (0.0, 1.0)],
+    [
+        (0.0731, 0.08),
+        (0.08, 0.08),
+        (0.0101, 0.012),
+        (3.2, 4.0),
+        (0.95, 1.0),
+        (0.0, 1.0),
+        (0.13, 0.2),
+    ],  # 1.5 is not a limit step: its quarter ticks would need 0.075
 )
 def test_round_up(value, expected):
     assert trends._round_up(value) == pytest.approx(expected)

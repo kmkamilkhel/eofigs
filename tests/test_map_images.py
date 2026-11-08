@@ -1,4 +1,4 @@
-"""Image comparisons for maps and trend maps (compared on the Linux CI job with ``--mpl``).
+"""Image comparisons for the map recipes (compared on the Linux CI job with ``--mpl``).
 
 Without ``--mpl`` these tests only build the figures. Baselines are in tests/baseline and
 were rendered on Linux with DejaVu Sans; font rendering differs between operating systems,
@@ -109,4 +109,42 @@ def test_trend_map_profile_image():
     with eofigs.style("custom", font="DejaVu Sans", labels="(a)"):
         return eofigs.trend_map(
             slope=slope, pvalue=pvalue, variable="ndvi", latitude_profile=True, width="double"
+        )
+
+
+def _event_cube():
+    """A small monthly cube with a seasonal cycle and five two-month dry events."""
+    import pandas as pd
+
+    time = pd.date_range("2001-01-01", "2012-12-01", freq="MS")
+    rng = np.random.default_rng(2)
+    season = 0.1 * np.sin(2 * np.pi * (time.month.to_numpy() - 4) / 12)
+    east = np.linspace(0, 1, 30)[None, :] * np.ones((24, 1))
+    values = 0.5 + season[:, None, None] + rng.normal(0, 0.015, (time.size, 24, 30))
+    events = []
+    for start in ("2002-06", "2004-07", "2006-05", "2008-08", "2010-06"):
+        i = time.get_loc(pd.Timestamp(f"{start}-01"))
+        values[i : i + 2] -= 0.02 + 0.06 * east
+        values[i + 2 : i + 5] -= 0.01 + 0.03 * east
+        events.append((time[i], time[i + 1]))
+    y = 3_899_500 - np.arange(24) * 1000.0
+    x = 250_500 + np.arange(30) * 1000.0
+    cube = xr.DataArray(values, dims=("time", "y", "x"), coords={"time": time, "y": y, "x": x},
+                        name="ndvi", attrs={"long_name": "NDVI", "units": "1"})  # fmt: skip
+    return cube.rio.write_crs(UTM), events
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_event_composite_image():
+    cube, events = _event_cube()
+    with eofigs.style("custom", font="DejaVu Sans", labels="(a)"):
+        return eofigs.event_composite(cube, events)
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_event_composite_two_phases_image():
+    cube, events = _event_cube()
+    with eofigs.style("custom", font="DejaVu Sans"):
+        return eofigs.event_composite(
+            cube, events, maps=("during", "after"), series=False, width="onehalf"
         )
