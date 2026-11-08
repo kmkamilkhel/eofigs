@@ -478,7 +478,7 @@ def _layout(width, height_mm, preset, ratio, small, size, legend_mm, profile, ha
     bottom = lab_h + 4.0
     cbar_block = 2.5 + 2 * (small * maps._PT + 1.5) + 3.0
     prof_w = max(28.0, 0.24 * fig_w) if profile else 0.0
-    gap = 4.0 if profile else 0.0
+    gap = 9.0 if profile else 0.0  # room for the last longitude and the first slope label
     prof_right = lat_w + 3.0 if profile else 0.0  # the profile's latitude labels
     lw, lh = legend_mm if legend_mm is not None else (0.0, 0.0)
 
