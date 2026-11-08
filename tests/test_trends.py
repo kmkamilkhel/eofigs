@@ -424,3 +424,12 @@ def test_swat_trend_map(arial):
     assert w == pytest.approx(140) and h <= 180.5
     assert report.passed and not report.warnings, str(report)
     assert mpl.colormaps["eofigs.terra_slate"].name == "eofigs.terra_slate"
+
+
+def test_layout_record_holds_plain_numbers(custom_style):
+    import json
+
+    slope, pvalue = _left_half_significant()
+    fig = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", latitude_profile=True,
+                           width="double")  # fmt: skip
+    json.dumps(fig.eofigs_layout)  # serialisable: no numpy scalars

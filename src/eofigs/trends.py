@@ -621,7 +621,7 @@ def _draw_marks(ax, significant, valid, slope, stipple, sig_fraction, spacing_mm
             px, py, s=diameter**2, marker="o", facecolor=DOT_COLOUR, edgecolor="white",
             linewidth=0.15, zorder=4, transform=maps._projection(crs),
         )  # fmt: skip
-        return int(px.size), round(cell_mm, 3)
+        return int(px.size), round(float(cell_mm), 3)
     field = np.ma.masked_where(~usable, share)
     cs = ax.contourf(
         xx, yy, field, levels=[sig_fraction - 1e-9, 1.0 + 1e-9], colors="none",
@@ -630,7 +630,7 @@ def _draw_marks(ax, significant, valid, slope, stipple, sig_fraction, spacing_mm
     cs.set_edgecolor(TEXT_COLOUR)
     cs.set_linewidth(0.0)
     with np.errstate(invalid="ignore"):
-        return int((usable & (share >= sig_fraction - 1e-9)).sum()), round(cell_mm, 3)
+        return int((usable & (share >= sig_fraction - 1e-9)).sum()), round(float(cell_mm), 3)
 
 
 def _legend_handles(aoi_label, grids, stipple, alpha, sig_fraction, excluded, slope, label):
@@ -783,7 +783,7 @@ def _draw_profile(holder, ax, lay, shown, crs, extent, limit, var, small):
     for spine in prof.spines.values():
         spine.set_linewidth(0.6)
     prof.set_xticks(diverging_ticks(limit, _STATE.get("max_ticks") or 5))
-    return prof, {"step_deg": round(step, 4), "bands": int(len(centres)),
+    return prof, {"step_deg": round(float(step), 4), "bands": int(len(centres)),
                   "min_pixels": PROFILE_MIN_PIXELS}  # fmt: skip
 
 
