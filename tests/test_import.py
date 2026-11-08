@@ -31,6 +31,7 @@ def test_public_api():
         "style",
         "tidy_axes",
         "trend",
+        "trend_map",
         "variable",
     }
     for name in eofigs.__all__:

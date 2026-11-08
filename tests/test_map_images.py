@@ -1,4 +1,4 @@
-"""Image comparisons for map elements (compared on the Linux CI job with ``--mpl``).
+"""Image comparisons for maps and trend maps (compared on the Linux CI job with ``--mpl``).
 
 Without ``--mpl`` these tests only build the figures. Baselines are in tests/baseline and
 were rendered on Linux with DejaVu Sans; font rendering differs between operating systems,
@@ -71,3 +71,42 @@ def test_study_area_map_side_image():
         fig = eofigs.study_area_map(_aoi(), dem=_dem(), width="onehalf", journal="elsevier")
     assert fig.eofigs_layout["layout"] == "side"
     return fig
+
+
+def _trend_grids():
+    """A tall slope grid with greening in the west, browning in the east and a bare strip."""
+    y = np.arange(3_899_750, 3_840_000, -500.0)
+    x = np.arange(250_250, 280_000, 500.0)
+    xx, yy = np.meshgrid((x - x[0]) / (x[-1] - x[0]), (y - y[-1]) / (y[0] - y[-1]))
+    slope = 0.06 * np.cos(np.pi * xx) + 0.02 * np.sin(6 * yy)
+    slope[:12, 40:] = np.nan  # no data in the north-east corner
+    pvalue = np.where(np.abs(slope) > 0.03, 0.01, 0.4)
+    coords = {"y": y, "x": x}
+    s = xr.DataArray(slope, dims=("y", "x"), coords=coords).rio.write_crs(UTM)
+    p = xr.DataArray(pvalue, dims=("y", "x"), coords=coords).rio.write_crs(UTM)
+    return s, p
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_trend_map_dots_image():
+    slope, pvalue = _trend_grids()
+    with eofigs.style("custom", font="DejaVu Sans"):
+        return eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", width="single")
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_trend_map_hatch_image():
+    slope, pvalue = _trend_grids()
+    with eofigs.style("custom", font="DejaVu Sans"):
+        return eofigs.trend_map(
+            slope=slope, pvalue=pvalue, variable="ndvi", stipple="hatch", width="single"
+        )
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_trend_map_profile_image():
+    slope, pvalue = _trend_grids()
+    with eofigs.style("custom", font="DejaVu Sans", labels="(a)"):
+        return eofigs.trend_map(
+            slope=slope, pvalue=pvalue, variable="ndvi", latitude_profile=True, width="double"
+        )

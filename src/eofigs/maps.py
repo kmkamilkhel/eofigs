@@ -95,7 +95,12 @@ def map_crs(aoi: Any):
 
 def _projection(crs):
     import cartopy.crs as ccrs
+    import pyproj
 
+    crs = pyproj.CRS.from_user_input(crs)
+    epsg = crs.to_epsg(min_confidence=70)  # a WKT without an EPSG code lacks the area of use
+    if epsg is not None:
+        crs = pyproj.CRS.from_epsg(epsg)
     return ccrs.Projection(crs)
 
 
