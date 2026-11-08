@@ -3,10 +3,12 @@
 eofigs is under development towards its first release (v0.1). Available now: journal
 styles, figure sizes in millimetres, panel labels, export and figure checks, the variable
 library, print-size raster handling, trend statistics, manuscript figure sets, built-in
-palettes, colour-blind previews, study area maps, trend maps and event composites.
+palettes, colour-blind previews, study area maps, trend maps, event composites and accuracy
+scatters.
 """
 
 from eofigs import palettes
+from eofigs.accuracy import accuracy_scatter
 from eofigs.check import CheckReport, CheckResult, check_figure, cvd_preview
 from eofigs.events import event_composite
 from eofigs.export import save_figure
@@ -26,6 +28,7 @@ __all__ = [
     "FigureSet",
     "Variable",
     "__version__",
+    "accuracy_scatter",
     "add_inset",
     "add_north_arrow",
     "add_scale_bar",
