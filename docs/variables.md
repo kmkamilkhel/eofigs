@@ -13,15 +13,21 @@ ndvi.cmap  # 'cmc.bamako_r'
 gpp = eofigs.variable("gpp")
 gpp.short_label  # 'GPP (gC m$^{-2}$ d$^{-1}$)'
 gpp.trend("year").units  # 'gC m$^{-2}$ d$^{-1}$ yr$^{-1}$'
-gpp.anomaly().cmap  # 'cmc.vik_r', zero-centred
+gpp.anomaly().cmap  # 'eofigs.terra_slate', zero-centred
 
 eofigs.variable(dataarray)  # recognised from standard_name, long_name or name
 ```
 
-Anomalies and trends of any variable switch to a zero-centred diverging colour map.
-For vegetation and water variables, negative values (browning, drying) are brown and
-positive values blue (`cmc.vik_r`); for temperature, negative values are blue and positive
-values red (`cmc.vik`).
+Anomalies and trends of any variable switch to a zero-centred diverging colour map, with
+the direction that reads naturally:
+
+| Variables | Map | Negative | Positive |
+|---|---|---|---|
+| vegetation indices and productivity (NDVI, EVI, kNDVI, NIRv, LAI, FAPAR, GPP, NPP, SIF) | `eofigs.terra_slate` | terracotta (browning) | slate teal (greening) |
+| water (precipitation, SPEI, soil moisture, evapotranspiration) | `cmc.vik_r` | brown-red (drying) | blue (wetting) |
+| vegetation structure (VOD, canopy height, biomass, tree cover) | `cmc.vik_r` | brown-red (loss) | blue (gain) |
+| temperature (LST, air temperature) | `cmc.vik` | blue (cooling) | red (warming) |
+| terrain (elevation, slope) and burn severity (dNBR) | `cmc.vik` | blue | red (higher, more severe) |
 
 ## Units
 
@@ -60,17 +66,17 @@ for water, `lajolla` for temperature (bright = hot) and `lajolla_r` for burn sev
 | `dnbr` | Differenced Normalized Burn Ratio | dNBR | – | `cmc.lajolla_r` | `cmc.vik` | -0.25 to 1 |
 | `elevation` | Elevation | z | m | `cmc.batlow` | `cmc.vik` | from data |
 | `evapotranspiration` | Evapotranspiration | ET | mm d<sup>-1</sup> | `cmc.davos_r` | `cmc.vik_r` | 0 to data |
-| `evi` | Enhanced Vegetation Index | EVI | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1 |
-| `fapar` | Fraction of absorbed photosynthetically active radiation | FAPAR | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1 |
-| `gpp` | Gross primary productivity | GPP | gC m<sup>-2</sup> d<sup>-1</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 15 |
-| `kndvi` | Kernel NDVI | kNDVI | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1 |
-| `lai` | Leaf area index | LAI | m<sup>2</sup> m<sup>-2</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 7 |
+| `evi` | Enhanced Vegetation Index | EVI | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1 |
+| `fapar` | Fraction of absorbed photosynthetically active radiation | FAPAR | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1 |
+| `gpp` | Gross primary productivity | GPP | gC m<sup>-2</sup> d<sup>-1</sup> | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 15 |
+| `kndvi` | Kernel NDVI | kNDVI | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1 |
+| `lai` | Leaf area index | LAI | m<sup>2</sup> m<sup>-2</sup> | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 7 |
 | `lst` | Land surface temperature | LST | °C | `cmc.lajolla` | `cmc.vik` | from data |
-| `ndvi` | Normalized Difference Vegetation Index | NDVI | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1 |
-| `nirv` | Near-infrared reflectance of vegetation | NIR<sub>v</sub> | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 0.5 |
-| `npp` | Net primary productivity | NPP | gC m<sup>-2</sup> yr<sup>-1</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1500 |
+| `ndvi` | Normalized Difference Vegetation Index | NDVI | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1 |
+| `nirv` | Near-infrared reflectance of vegetation | NIR<sub>v</sub> | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 0.5 |
+| `npp` | Net primary productivity | NPP | gC m<sup>-2</sup> yr<sup>-1</sup> | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1500 |
 | `precipitation` | Precipitation | P | mm | `cmc.davos_r` | `cmc.vik_r` | 0 to data |
-| `sif` | Solar-induced chlorophyll fluorescence | SIF | mW m<sup>-2</sup> nm<sup>-1</sup> sr<sup>-1</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 2 |
+| `sif` | Solar-induced chlorophyll fluorescence | SIF | mW m<sup>-2</sup> nm<sup>-1</sup> sr<sup>-1</sup> | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 2 |
 | `soil_moisture` | Soil moisture | SM | m<sup>3</sup> m<sup>-3</sup> | `cmc.davos_r` | `cmc.vik_r` | 0 to 0.5 |
 | `spei` | Standardised Precipitation-Evapotranspiration Index | SPEI | – | `cmc.vik_r` | `cmc.vik_r` | -3 to 3 |
 | `terrain_slope` | Terrain slope | Slope | ° | `cmc.batlow` | `cmc.vik` | 0 to 60 |

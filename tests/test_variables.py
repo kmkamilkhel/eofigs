@@ -64,7 +64,7 @@ def test_labels():
 
 def test_anomaly_and_trend():
     anomaly = eofigs.variable("ndvi").anomaly()
-    assert anomaly.kind == "diverging" and anomaly.cmap == "cmc.vik_r"
+    assert anomaly.kind == "diverging" and anomaly.cmap == "eofigs.terra_slate"
     assert anomaly.vmin is None and anomaly.units == ""
     trend = eofigs.variable("gpp").trend("year")
     assert trend.units == "gC m$^{-2}$ d$^{-1}$ yr$^{-1}$"
@@ -157,3 +157,57 @@ def test_variable_object_works_without_registering():
     own = Variable(name="cci", long_name="Chlorophyll carotenoid index", symbol="CCI")
     assert eofigs.variable(own) is own
     assert "cci" not in variable_names()
+
+
+TERRA = "#965742"  # terracotta, the negative end of terra_slate
+
+
+@pytest.mark.parametrize(
+    ("name", "negative"),
+    [
+        *[
+            (n, "terracotta")
+            for n in ("ndvi", "evi", "kndvi", "nirv", "lai", "fapar", "gpp", "npp", "sif")
+        ],  # fmt: skip
+        *[
+            (n, "warm")
+            for n in (
+                "precipitation",
+                "spei",
+                "soil_moisture",
+                "evapotranspiration",
+                "vod",
+                "canopy_height",
+                "agb",
+                "tree_cover",
+            )
+        ],  # fmt: skip
+        *[
+            (n, "cool") for n in ("lst", "air_temperature", "elevation", "terrain_slope", "dnbr")
+        ],  # fmt: skip
+    ],
+)
+def test_trend_colours_point_the_right_way(name, negative):
+    """Browning and drying are warm colours; warming is red; greening is never blue."""
+    import matplotlib as mpl
+    from matplotlib.colors import to_hex
+
+    cmap = mpl.colormaps[eofigs.variable(name).trend().cmap]
+    low, high = cmap(0.0)[:3], cmap(1.0)[:3]
+    if negative == "terracotta":
+        assert to_hex(low).upper() == TERRA
+        assert high[2] >= high[0]  # slate teal: not red
+    elif negative == "warm":
+        assert low[0] > low[2] and high[2] > high[0]  # red-brown low, blue high
+    else:
+        assert low[2] > low[0] and high[0] > high[2]  # blue low, red high
+
+
+def test_every_variable_has_an_audited_trend_direction():
+    import json
+    from importlib import resources
+
+    names = set(json.loads(resources.files("eofigs").joinpath("data/variables.json")
+                           .read_text(encoding="utf-8"))["variables"])  # fmt: skip
+    audited = {p[0] for p in test_trend_colours_point_the_right_way.pytestmark[0].args[1]}
+    assert names == audited
