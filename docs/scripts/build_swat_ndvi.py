@@ -107,19 +107,26 @@ def grid() -> tuple[rasterio.Affine, int, int]:
     return from_origin(x0, y1, CELL, CELL), width, height
 
 
-def items(year: int) -> list[dict]:
-    """Terra composites of tile h23v05 starting in the growing season of ``year``."""
+def items(year: int, season: tuple[str, str] = SEASON) -> list[dict]:
+    """Terra composites of tile h23v05 starting within ``season`` (month-day pair) of ``year``."""
     transform, width, height = grid()
     bounds = rasterio.transform.array_bounds(height, width, transform)
     west, south, east, north = transform_bounds(CRS, "EPSG:4326", *bounds)
     body = {
         "collections": [COLLECTION],
         "bbox": [west, south, east, north],
-        "datetime": f"{year}-04-01T00:00:00Z/{year}-10-31T23:59:59Z",
+        "datetime": f"{year - 1}-12-01T00:00:00Z/{year + 1}-01-31T23:59:59Z",
         "limit": 100,
     }
-    found = _json(STAC, body)["features"]
-    first, last = (date.fromisoformat(f"{year}-{day}") for day in SEASON)
+    found = []
+    while True:  # follow the "next" links: a search returns at most 100 items per page
+        page = _json(STAC, body)
+        found += page["features"]
+        following = [link for link in page.get("links", []) if link.get("rel") == "next"]
+        if not following:
+            break
+        body = following[0]["body"]
+    first, last = (date.fromisoformat(f"{year}-{day}") for day in season)
     keep = [
         f for f in found
         if f["id"].startswith("MOD13A1.") and TILE in f["id"] and first <= _start(f) <= last
@@ -166,8 +173,10 @@ def fetch(item: dict, transform, width, height) -> Path:
     return target
 
 
-def annual_median(paths: list[Path]) -> tuple[np.ndarray, np.ndarray, str]:
-    """Median NDVI of the good composites, NaN where fewer than MIN_COMPOSITES are good."""
+def annual_median(
+    paths: list[Path], min_composites: int = MIN_COMPOSITES
+) -> tuple[np.ndarray, np.ndarray, str]:
+    """Median NDVI of the good composites, NaN where fewer than ``min_composites`` are good."""
     stack, transform, crs = [], None, None
     for path in paths:
         with np.load(path) as f:
@@ -179,7 +188,7 @@ def annual_median(paths: list[Path]) -> tuple[np.ndarray, np.ndarray, str]:
     count = np.isfinite(cube).sum(axis=0)
     with np.errstate(all="ignore"):
         median = np.nanmedian(cube, axis=0) if len(stack) else cube[0]
-    median[count < MIN_COMPOSITES] = np.nan
+    median[count < min_composites] = np.nan
     return median, transform, crs
 
 

@@ -42,7 +42,8 @@ ENVELOPE_COLOUR = "#A8B7B6"
 PROFILE_BAND_MM = 2.0
 #: A profile band needs at least this many valid full-resolution pixels.
 PROFILE_MIN_PIXELS = 20
-_MANTISSAS = (1, 1.2, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10)
+#: Round values for colour limits; each gives 4-5 round ticks (1.5 would need 0.75 steps).
+_MANTISSAS = (1, 1.2, 2, 2.5, 3, 4, 5, 6, 8, 10)
 _SUPERSCRIPT = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
 
 
@@ -531,7 +532,7 @@ def _layout(width, height_mm, preset, ratio, small, size, legend_mm, profile, ha
 def _draw_slope(ax, shown, var, limit, crs, extent, map_w, map_h, dpi, projection):
     values, img_extent, _ = maps._prepare_raster(shown, crs, extent, map_w, map_h, dpi,
                                                  "continuous")  # fmt: skip
-    cmap = mpl.colormaps[var.cmap]
+    cmap = mpl.colormaps[var.cmap].with_extremes(bad=(0, 0, 0, 0))  # gaps: hatched classes
     image = ax.imshow(
         np.ma.masked_invalid(values), cmap=cmap, norm=Normalize(-limit, limit),
         extent=img_extent, transform=projection, origin="upper", zorder=1,
@@ -814,6 +815,18 @@ def _draw_profile(holder, ax, lay, shown, crs, extent, limit, var, small):
 # ============================================================================ caption
 
 
+def percent(value: float) -> str:
+    """Share for a caption: one decimal, or "<0.1" for small non-zero shares.
+
+    Examples
+    --------
+    >>> from eofigs.trends import percent
+    >>> percent(14.77), percent(0.03), percent(0.0)
+    ('14.8', '<0.1', '0.0')
+    """
+    return "<0.1" if 0 < value < 0.05 else f"{value:.1f}"
+
+
 def _plain(units: str) -> str:
     """Mathtext units as plain text with Unicode superscripts ("decade$^{-1}$" -> "decade⁻¹")."""
     text = re.sub(r"\$\^\{([-0-9]+)\}\$", lambda m: m.group(1).translate(_SUPERSCRIPT), units)
@@ -827,9 +840,9 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
     clipped = record["clipped_percent"]
     if record["limits_rule"] == "p98":
         parts = [f"Colours are limited to {limit} (98th percentile of |slope|); "
-                 f"{clipped:.1f} % of pixels exceed this."]  # fmt: skip
+                 f"{percent(clipped)} % of pixels exceed this."]  # fmt: skip
     elif record["limits_rule"] == "fixed":
-        parts = [f"Colours are limited to {limit}; {clipped:.1f} % of pixels exceed this."]
+        parts = [f"Colours are limited to {limit}; {percent(clipped)} % of pixels exceed this."]
     else:
         parts = [f"Colours span the full range ({limit})."]
     if record["marks"] or (grids.significant is not None and stipple is not None):
@@ -845,13 +858,13 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
         what = (f"mean {name} below {threshold:g} over the record (not vegetated"
                 if threshold is not None else "excluded pixels (")  # fmt: skip
         sep = "; " if threshold is not None else ""
-        parts.append(f"Grey with diagonal hatching: {what}{sep}{share:.1f} % of pixels).")
+        parts.append(f"Grey with diagonal hatching: {what}{sep}{percent(share)} % of pixels).")
     if record["no_data_percent"] > 0:
         what = ("no valid trend (too few observations" if grids.from_test
                 else "no data (")  # fmt: skip
         sep = "; " if grids.from_test else ""
         parts.append(f"Grey with cross-hatching: {what}{sep}"
-                     f"{record['no_data_percent']:.1f} % of pixels).")  # fmt: skip
+                     f"{percent(record['no_data_percent'])} % of pixels).")  # fmt: skip
     if profile:
         step = record["profile_bands"]["step_deg"]
         parts.append(f"Profile: median and interquartile range of the full-resolution slope in "

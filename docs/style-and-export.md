@@ -59,6 +59,13 @@ not installed (with a warning), makes `label_panels` write bold **A**, **B**, ..
 outside the top-left corner of each panel, and turns on the tick rule (below). A journal preset can be combined with it
 (`journal="elsevier"`) to keep that journal's sizes and resolution.
 
+Some authors keep panel titles out of figures: the phases or periods go in the caption and
+each panel carries only its letter. `set_style(..., panel_titles=False)` makes every recipe
+follow that rule; recipes that would title their panels (for example the "Before (3 months)",
+"During" and "After (6 months)" maps of `event_composite`) then name the panels in their
+caption sentence instead: "(a) before, 3 months; (b) during; (c) after, 6 months; (d)
+composite series".
+
 ## Ticks and dense layers
 
 - `tidy_axes(ax, colour_bar, ...)` gives each axis and colour bar four or five ticks at

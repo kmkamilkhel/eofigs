@@ -19,6 +19,7 @@ def test_public_api():
         "add_scale_bar",
         "check_figure",
         "cvd_preview",
+        "event_composite",
         "figure_set",
         "fit_raster",
         "label_panels",
