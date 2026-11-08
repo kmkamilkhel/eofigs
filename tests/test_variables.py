@@ -160,35 +160,22 @@ def test_variable_object_works_without_registering():
 
 
 TERRA = "#965742"  # terracotta, the negative end of terra_slate
+VEGETATION = (
+    *("ndvi", "evi", "kndvi", "nirv", "lai", "fapar", "gpp", "npp", "sif"),  # indices
+    *("vod", "canopy_height", "agb", "tree_cover"),  # structure
+)
 
 
 @pytest.mark.parametrize(
     ("name", "negative"),
     [
-        *[
-            (n, "terracotta")
-            for n in ("ndvi", "evi", "kndvi", "nirv", "lai", "fapar", "gpp", "npp", "sif")
-        ],  # fmt: skip
-        *[
-            (n, "warm")
-            for n in (
-                "precipitation",
-                "spei",
-                "soil_moisture",
-                "evapotranspiration",
-                "vod",
-                "canopy_height",
-                "agb",
-                "tree_cover",
-            )
-        ],  # fmt: skip
-        *[
-            (n, "cool") for n in ("lst", "air_temperature", "elevation", "terrain_slope", "dnbr")
-        ],  # fmt: skip
+        *[(n, "terracotta") for n in VEGETATION],
+        *[(n, "warm") for n in ("precipitation", "spei", "soil_moisture", "evapotranspiration")],
+        *[(n, "cool") for n in ("lst", "air_temperature", "elevation", "terrain_slope", "dnbr")],
     ],
 )
 def test_trend_colours_point_the_right_way(name, negative):
-    """Browning and drying are warm colours; warming is red; greening is never blue."""
+    """Vegetation loss is terracotta, drying red-brown, warming red; greening is never blue."""
     import matplotlib as mpl
     from matplotlib.colors import to_hex
 

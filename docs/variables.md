@@ -24,8 +24,8 @@ the direction that reads naturally:
 | Variables | Map | Negative | Positive |
 |---|---|---|---|
 | vegetation indices and productivity (NDVI, EVI, kNDVI, NIRv, LAI, FAPAR, GPP, NPP, SIF) | `eofigs.terra_slate` | terracotta (browning) | slate teal (greening) |
+| vegetation structure (VOD, canopy height, biomass, tree cover) | `eofigs.terra_slate` | terracotta (loss) | slate teal (gain) |
 | water (precipitation, SPEI, soil moisture, evapotranspiration) | `cmc.vik_r` | brown-red (drying) | blue (wetting) |
-| vegetation structure (VOD, canopy height, biomass, tree cover) | `cmc.vik_r` | brown-red (loss) | blue (gain) |
 | temperature (LST, air temperature) | `cmc.vik` | blue (cooling) | red (warming) |
 | terrain (elevation, slope) and burn severity (dNBR) | `cmc.vik` | blue | red (higher, more severe) |
 
@@ -60,9 +60,9 @@ for water, `lajolla` for temperature (bright = hot) and `lajolla_r` for burn sev
 
 | Name | Long name | Symbol | Units | Colour map | Anomaly and trend map | Default range |
 |---|---|---|---|---|---|---|
-| `agb` | Aboveground biomass | AGB | Mg ha<sup>-1</sup> | `cmc.bamako_r` | `cmc.vik_r` | 0 to 400 |
+| `agb` | Aboveground biomass | AGB | Mg ha<sup>-1</sup> | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 400 |
 | `air_temperature` | Air temperature | T<sub>a</sub> | °C | `cmc.lajolla` | `cmc.vik` | from data |
-| `canopy_height` | Canopy height | h | m | `cmc.bamako_r` | `cmc.vik_r` | 0 to 50 |
+| `canopy_height` | Canopy height | h | m | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 50 |
 | `dnbr` | Differenced Normalized Burn Ratio | dNBR | – | `cmc.lajolla_r` | `cmc.vik` | -0.25 to 1 |
 | `elevation` | Elevation | z | m | `cmc.batlow` | `cmc.vik` | from data |
 | `evapotranspiration` | Evapotranspiration | ET | mm d<sup>-1</sup> | `cmc.davos_r` | `cmc.vik_r` | 0 to data |
@@ -80,8 +80,8 @@ for water, `lajolla` for temperature (bright = hot) and `lajolla_r` for burn sev
 | `soil_moisture` | Soil moisture | SM | m<sup>3</sup> m<sup>-3</sup> | `cmc.davos_r` | `cmc.vik_r` | 0 to 0.5 |
 | `spei` | Standardised Precipitation-Evapotranspiration Index | SPEI | – | `cmc.vik_r` | `cmc.vik_r` | -3 to 3 |
 | `terrain_slope` | Terrain slope | Slope | ° | `cmc.batlow` | `cmc.vik` | 0 to 60 |
-| `tree_cover` | Tree cover | TC | % | `cmc.bamako_r` | `cmc.vik_r` | 0 to 100 |
-| `vod` | Vegetation optical depth | VOD | – | `cmc.bamako_r` | `cmc.vik_r` | 0 to 1.5 |
+| `tree_cover` | Tree cover | TC | % | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 100 |
+| `vod` | Vegetation optical depth | VOD | – | `cmc.bamako_r` | `eofigs.terra_slate` | 0 to 1.5 |
 
 The table is generated from `eofigs/data/variables.json`, which the R version of eofigs
 will share.
