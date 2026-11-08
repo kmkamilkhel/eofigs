@@ -4,6 +4,7 @@ title: "eofigs: analysis-aware, publication-ready figures for Earth observation 
 type: software
 version: 0.1.0
 date-released: "2026-11-08"
+doi: 10.5281/zenodo.24053760
 abstract: >-
   eofigs turns Earth observation analysis outputs (rasters, time series and validation
   pairs) into journal-ready figures that know the analysis, the variable and the printed
