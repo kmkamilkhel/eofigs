@@ -15,11 +15,11 @@ from matplotlib.colors import Normalize
 from matplotlib.figure import Figure
 from matplotlib.lines import Line2D
 from matplotlib.patches import Patch
+from matplotlib.ticker import FuncFormatter
 
 from eofigs import maps
 from eofigs._colour import NO_DATA_COLOUR, SECONDARY_COLOUR, TEXT_COLOUR
 from eofigs._presets import get_journal, resolve_width
-from eofigs.palettes import slate
 from eofigs.styling import _STATE, label_panels, round_ticks
 from eofigs.variables import Variable
 from eofigs.variables import variable as lookup_variable
@@ -32,9 +32,12 @@ VEGETATION_INDICES = ("ndvi", "evi", "kndvi", "nirv", "lai", "fapar", "gpp", "np
 EXCLUDE_THRESHOLD = 0.1
 STIPPLES = ("dots", "hatch")
 DOT_COLOUR = TEXT_COLOUR
-#: Hatching on the grey of excluded and no-data pixels.
-GREY_HATCH = "//////"
+#: Hatching on the grey of excluded ("not vegetated") and of no-data pixels.
+EXCLUDED_HATCH = "///"
+NO_DATA_HATCH = "xxx"
 DOT_SIZE_MM = 0.35
+#: Interquartile band of the profile: the light teal of terra_slate (drawn at 50 %).
+ENVELOPE_COLOUR = "#A8B7B6"
 #: Latitude bands of the profile are about this tall on the page (mm).
 PROFILE_BAND_MM = 2.0
 #: A profile band needs at least this many valid full-resolution pixels.
@@ -230,8 +233,11 @@ def trend_map(
 
     dpi = preset.export_dpi
     image = _draw_slope(ax, shown, var, limit, crs, extent, map_w, map_h, dpi, projection)
-    grey = xr.DataArray(~valid, coords=grids.slope.coords, dims=grids.slope.dims)
-    _draw_grey(ax, grey.rio.write_crs(src_crs), crs, extent, map_w, map_h, dpi, projection)
+    no_data = ~np.isfinite(grids.slope.values) & ~excluded
+    for mask, hatch in ((excluded, EXCLUDED_HATCH), (no_data, NO_DATA_HATCH)):
+        grey = xr.DataArray(mask, coords=grids.slope.coords, dims=grids.slope.dims)
+        _draw_grey(ax, grey.rio.write_crs(src_crs), hatch, crs, extent, map_w, map_h, dpi,
+                   projection)  # fmt: skip
     marks, cell_mm = 0, None
     if grids.significant is not None and stipple is not None:
         marks, cell_mm = _draw_marks(ax, grids.significant, valid, grids.slope, stipple,
@@ -273,6 +279,7 @@ def trend_map(
         "extend": extend,
         **stats,
         "excluded_percent": round(100.0 * float(excluded.mean()), 2),
+        "no_data_percent": round(100.0 * float(no_data.mean()), 2),
         "marks": marks,
         "mark_cell_mm": cell_mm,
         "items": {k: v[0] for k, v in items.items()},
@@ -533,11 +540,12 @@ def _draw_slope(ax, shown, var, limit, crs, extent, map_w, map_h, dpi, projectio
     return image
 
 
-def _draw_grey(ax, grey, crs, extent, map_w, map_h, dpi, projection):
-    """Excluded and no-data pixels: grey #BDBDBD with white hatching, pixel-exact.
+def _draw_grey(ax, grey, hatch, crs, extent, map_w, map_h, dpi, projection):
+    """Masked pixels: grey #BDBDBD with white hatching, pixel-exact.
 
     The hatching keeps them apart from the light middle of the trend colours (plain grey
-    is too close to weak greening in protan and deutan simulation).
+    is too close to weak greening in protan and deutan simulation): diagonal for excluded
+    pixels, crossed for pixels without data.
     """
     from rasterio import features
     from rasterio.transform import from_bounds
@@ -557,7 +565,7 @@ def _draw_grey(ax, grey, crs, extent, map_w, map_h, dpi, projection):
         return None
     return ax.add_geometries(
         polygons, crs=projection, facecolor=NO_DATA_COLOUR, edgecolor="white",
-        linewidth=0.0, hatch=GREY_HATCH, zorder=2,
+        linewidth=0.0, hatch=hatch, zorder=2,
     )  # fmt: skip
 
 
@@ -646,20 +654,17 @@ def _legend_handles(aoi_label, grids, stipple, alpha, sig_fraction, excluded, sl
         else:
             handles.append(Patch(facecolor="none", edgecolor=TEXT_COLOUR, hatch="....",
                                  linewidth=0.0, label=text))  # fmt: skip
-    no_data = ~np.isfinite(slope.values) & ~excluded
-    grey = _grey_label(bool(excluded.any()), bool(no_data.any()), label)
-    if grey is not None:
-        handles.append(Patch(facecolor=NO_DATA_COLOUR, edgecolor="white", hatch=GREY_HATCH,
-                             linewidth=0.0, label=grey))  # fmt: skip
+    if excluded.any():
+        handles.append(Patch(facecolor=NO_DATA_COLOUR, edgecolor="white", hatch=EXCLUDED_HATCH,
+                             linewidth=0.0, label=label))  # fmt: skip
+    if (~np.isfinite(slope.values) & ~excluded).any():
+        handles.append(Patch(facecolor=NO_DATA_COLOUR, edgecolor="white", hatch=NO_DATA_HATCH,
+                             linewidth=0.0, label=_no_data_label(grids)))  # fmt: skip
     return handles
 
 
-def _grey_label(has_excluded: bool, has_no_data: bool, label: str) -> str | None:
-    if has_excluded and has_no_data:
-        return f"{label} or no data"
-    if has_excluded:
-        return label
-    return "No data" if has_no_data else None
+def _no_data_label(grids) -> str:
+    return "No valid trend (too few observations)" if grids.from_test else "No data"
 
 
 def _draw_colourbar(holder, ax, lay, image, var, extend):
@@ -676,7 +681,24 @@ def _draw_colourbar(holder, ax, lay, image, var, extend):
     bar.ax.tick_params(labelsize=small, width=0.6, length=2.5)
     bar.outline.set_linewidth(0.6)
     bar.set_ticks(diverging_ticks(image.norm.vmax, _STATE.get("max_ticks") or 5))
+    bar.formatter = FuncFormatter(lambda value, _: tick_label(value))
+    bar.update_ticks()
     return bar
+
+
+def tick_label(value: float) -> str:
+    """Shortest exact label for a tick value, "0" for zero and a true minus sign.
+
+    Examples
+    --------
+    >>> from eofigs.trends import tick_label
+    >>> [tick_label(v) for v in (-0.05, -0.025, 0.0, 0.025, 0.05)]
+    ['−0.05', '−0.025', '0', '0.025', '0.05']
+    """
+    if abs(value) < 1e-12:
+        return "0"
+    text = f"{value:.10g}"
+    return text.replace("-", "−")
 
 
 def diverging_ticks(limit: float, max_ticks: int = 5) -> np.ndarray:
@@ -766,8 +788,9 @@ def _draw_profile(holder, ax, lay, shown, crs, extent, limit, var, small):
     _, lat_high = geo.transform_point(xc, extent[3], projection)
     step = (lat_high - lat_low) * PROFILE_BAND_MM / h
     centres, med, q25, q75, counts = latitude_bands(shown, step, lat_low, lat_high)
-    prof.fill_betweenx(centres, q25, q75, color=slate[0], linewidth=0, zorder=1,
-                       label="Interquartile range")  # fmt: skip
+    band = prof.fill_betweenx(centres, q25, q75, color=ENVELOPE_COLOUR, alpha=0.5, linewidth=0,
+                              zorder=1, label="Interquartile range")  # fmt: skip
+    band._eofigs_envelope = True  # a continuous band, not a categorical class
     prof.plot(med, centres, color=TEXT_COLOUR, linewidth=1.0, zorder=3, label="Median")
     prof.axvline(0, color=SECONDARY_COLOUR, linewidth=0.6, linestyle=(0, (3, 2)), zorder=2)
     prof.set_xlim(-limit, limit)
@@ -783,6 +806,7 @@ def _draw_profile(holder, ax, lay, shown, crs, extent, limit, var, small):
     for spine in prof.spines.values():
         spine.set_linewidth(0.6)
     prof.set_xticks(diverging_ticks(limit, _STATE.get("max_ticks") or 5))
+    prof.xaxis.set_major_formatter(FuncFormatter(lambda value, _: tick_label(value)))
     return prof, {"step_deg": round(float(step), 4), "bands": int(len(centres)),
                   "min_pixels": PROFILE_MIN_PIXELS}  # fmt: skip
 
@@ -815,18 +839,19 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
         what = "Dots" if stipple == "dots" else "Hatching"
         parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels significant "
                      f"({test}p < {alpha:g}).")  # fmt: skip
-    no_data = bool((~np.isfinite(grids.slope.values) & ~excluded).any())
-    grey = []
-    if threshold is not None and excluded.any():
+    share = record["excluded_percent"]
+    if excluded.any():
         name = var.symbol.removesuffix(" trend")
-        grey.append(f"mean {name} below {threshold:g} over the record (not vegetated)")
-    elif excluded.any():
-        grey.append("excluded pixels")
-    if no_data:
-        grey.append("no valid trend (too few valid observations)" if grids.from_test
-                    else "no data")  # fmt: skip
-    if grey:
-        parts.append(f"Hatched grey: {' or '.join(grey)}.")
+        what = (f"mean {name} below {threshold:g} over the record (not vegetated"
+                if threshold is not None else "excluded pixels (")  # fmt: skip
+        sep = "; " if threshold is not None else ""
+        parts.append(f"Grey with diagonal hatching: {what}{sep}{share:.1f} % of pixels).")
+    if record["no_data_percent"] > 0:
+        what = ("no valid trend (too few observations" if grids.from_test
+                else "no data (")  # fmt: skip
+        sep = "; " if grids.from_test else ""
+        parts.append(f"Grey with cross-hatching: {what}{sep}"
+                     f"{record['no_data_percent']:.1f} % of pixels).")  # fmt: skip
     if profile:
         step = record["profile_bands"]["step_deg"]
         parts.append(f"Profile: median and interquartile range of the full-resolution slope in "

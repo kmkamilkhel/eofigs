@@ -224,3 +224,19 @@ def test_single_colour_contours_are_not_colour_maps(sans_font):
     data = np.random.default_rng(4).random((5, 5))
     ax.contour(data, levels=[0.5], colors="#1A1A1A")
     assert _result(eofigs.check_figure(fig), "colour maps").message == "No colour-mapped data."
+
+
+def test_fill_between_envelopes_are_not_categorical_classes(sans_font):
+    """A continuous band is exempt from the categorical pairing; patches are still checked."""
+    from matplotlib.patches import Rectangle
+
+    with eofigs.style("custom", font=sans_font):
+        fig, ax = eofigs.new_figure("single")
+        x = np.linspace(0, 1, 20)
+        ax.plot(x, x, color="#BDBDBD")
+        ax.fill_between(x, x - 0.1, x + 0.1, color="#B8BDBD", alpha=0.5)
+        names = [r.name for r in eofigs.check_figure(fig).warnings]
+        assert "colour-blind safety" not in names
+        ax.add_patch(Rectangle((0, 0), 0.1, 0.1, color="#B8BDBD"))
+        names = [r.name for r in eofigs.check_figure(fig).warnings]
+        assert "colour-blind safety" in names

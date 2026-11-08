@@ -227,11 +227,16 @@ def test_auto_exclusion_of_bare_pixels(custom_style):
     fig = eofigs.trend_map(cube)
     layout = fig.eofigs_layout
     assert layout["excluded_percent"] == 25.0
-    assert "Hatched grey: mean NDVI below 0.1 over the record (not vegetated)." in layout["caption"]
+    assert (
+        "Grey with diagonal hatching: mean NDVI below 0.1 over the record "
+        "(not vegetated; 25.0 % of pixels)." in layout["caption"]
+    )
+    assert "cross-hatching" not in layout["caption"]  # no gaps: no clause, no legend entry
     labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
     assert "Not vegetated" in labels
-    grey = [c for c in fig.axes[0].collections if c.get_hatch() == trends.GREY_HATCH]
-    assert grey
+    hatches = {c.get_hatch() for c in fig.axes[0].collections}
+    assert trends.EXCLUDED_HATCH in hatches and trends.NO_DATA_HATCH not in hatches
+    assert not any(label.startswith("No ") for label in labels)
     kept = eofigs.trend_map(cube, exclude=None).eofigs_layout
     assert kept["excluded_percent"] == 0.0
     higher = eofigs.trend_map(cube, exclude=0.3).eofigs_layout
@@ -242,25 +247,68 @@ def test_auto_exclusion_of_bare_pixels(custom_style):
     assert eofigs.trend_map(temperature).eofigs_layout["excluded_percent"] == 0.0
 
 
-def test_exclusion_grid_and_no_data_label(custom_style):
+def test_two_masked_classes_are_told_apart(custom_style):
     values = np.full((20, 20), 0.01)
-    values[0, :] = np.nan
+    values[0, :] = np.nan  # 5 % without data
     mask = _grid(np.zeros((20, 20))).astype(bool)
-    mask[-2:, :] = True
+    mask[-2:, :] = True  # 10 % excluded
     fig = eofigs.trend_map(slope=_grid(values), variable="ndvi", exclude=mask,
                            exclude_label="Water")  # fmt: skip
+    layout = fig.eofigs_layout
     labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
-    assert "Water or no data" in labels
-    assert fig.eofigs_layout["excluded_percent"] == 10.0
-    assert "Hatched grey: excluded pixels or no data." in fig.eofigs_layout["caption"]
-    only_nan = eofigs.trend_map(slope=_grid(values), variable="ndvi")
-    assert "No data" in [t.get_text() for leg in only_nan.legends for t in leg.get_texts()]
+    assert "Water" in labels and "No data" in labels
+    assert layout["excluded_percent"] == 10.0 and layout["no_data_percent"] == 5.0
+    assert "Grey with diagonal hatching: excluded pixels (10.0 % of pixels)." in layout["caption"]
+    assert "Grey with cross-hatching: no data (5.0 % of pixels)." in layout["caption"]
+    hatches = {c.get_hatch() for c in fig.axes[0].collections}
+    assert {trends.EXCLUDED_HATCH, trends.NO_DATA_HATCH} <= hatches
+    only_gaps = eofigs.trend_map(slope=_grid(values), variable="ndvi")
+    labels = [t.get_text() for leg in only_gaps.legends for t in leg.get_texts()]
+    assert "No data" in labels and "Water" not in labels and "Not vegetated" not in labels
+    assert "diagonal" not in only_gaps.eofigs_layout["caption"]
 
 
-def test_grey_labels():
-    assert trends._grey_label(False, False, "x") is None
-    assert trends._grey_label(True, False, "Rock") == "Rock"
-    assert trends._grey_label(False, True, "Rock") == "No data"
+def test_no_valid_trend_from_a_cube(custom_style):
+    cube = _cube(np.full((10, 10), 0.005), noise=0.001)
+    cube[3:, 0, :] = np.nan  # the first row has only 3 valid years
+    fig = eofigs.trend_map(cube)
+    labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
+    assert "No valid trend (too few observations)" in labels
+    assert (
+        "Grey with cross-hatching: no valid trend (too few observations; 10.0 % of pixels)."
+        in fig.eofigs_layout["caption"]
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "text"),
+    [
+        (-0.05, "\N{MINUS SIGN}0.05"),
+        (-0.025, "\N{MINUS SIGN}0.025"),
+        (0.0, "0"),
+        (-0.0, "0"),
+        (0.08, "0.08"),
+        (20, "20"),
+    ],
+)
+def test_tick_labels_are_short_and_exact(value, text):
+    assert trends.tick_label(value) == text
+
+
+def test_colour_bar_and_profile_use_short_labels(custom_style):
+    lat = np.linspace(35.9, 34.5, 141)
+    lon = np.linspace(72.0, 72.8, 81)
+    values = np.repeat(((lat - 35.2) / 30)[:, None], lon.size, axis=1)
+    da = xr.DataArray(values, dims=("y", "x"), coords={"y": lat, "x": lon}).rio.write_crs(4326)
+    fig = eofigs.trend_map(slope=da, variable="ndvi", latitude_profile=True, width="double")
+    fig.canvas.draw()
+    limit = fig.eofigs_layout["limits"]
+    bar = [a for a in fig.axes if a.get_xlabel().startswith("NDVI trend")][0]
+    prof = [a for a in fig.axes if a.get_xlabel().startswith("Median")][0]
+    expected = [trends.tick_label(v) for v in trends.diverging_ticks(limit)]
+    assert "0" in expected
+    for axes in (bar, prof):
+        assert [t.get_text() for t in axes.get_xticklabels()] == expected
 
 
 def test_variable_resolution(custom_style):

@@ -357,7 +357,7 @@ def _categorical_colours(fig: Figure) -> list[str]:
             if line.get_visible() and len(line.get_xdata()) > 0:
                 add(line.get_color())
         for coll in ax.collections:
-            if not coll.get_visible() or _is_colour_mapped(coll):
+            if not coll.get_visible() or _is_colour_mapped(coll) or _is_envelope(coll):
                 continue
             faces = coll.get_facecolors()
             if 0 < len(faces) <= 20:
@@ -367,6 +367,13 @@ def _categorical_colours(fig: Figure) -> list[str]:
             if patch.get_visible() and patch.get_fill():
                 add(patch.get_facecolor())
     return list(found)
+
+
+def _is_envelope(coll) -> bool:
+    """Tell whether a collection is a fill_between band (a continuous envelope, not a class)."""
+    return bool(getattr(coll, "_eofigs_envelope", False)) or (
+        type(coll).__name__ == "FillBetweenPolyCollection"
+    )
 
 
 def _is_colour_mapped(artist) -> bool:
