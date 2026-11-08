@@ -155,3 +155,10 @@ def test_label_panels_explicit_list_and_errors():
 def test_label_single_axes():
     _, ax = eofigs.new_figure("single", journal="custom")
     assert [t.get_text() for t in eofigs.label_panels(ax, "(a)")] == ["(a)"]
+
+
+def test_panel_titles_setting(sans_font):
+    assert style_module.current_panel_titles() is True
+    with eofigs.style("custom", font=sans_font, panel_titles=False):
+        assert style_module.current_panel_titles() is False
+    assert style_module.current_panel_titles() is True

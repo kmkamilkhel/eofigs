@@ -33,7 +33,9 @@ uses [Semantic Versioning](https://semver.org/).
   runs past the record or overlaps another are dropped with a warning; a per-pixel linear
   trend is removed first; anomalies are taken from a monthly climatology of the non-event
   steps at full resolution (or z-scores); significance by a t-test (or Wilcoxon test) across
-  events, marked as in `trend_map`; shared colour limits and a ready caption sentence.
+  events, marked as in `trend_map`; shared colour limits and a ready caption sentence,
+  which notes the low power of a test with fewer than 5 events. The series shades the event
+  period, darker while all events are ongoing and lighter while only some are.
 - Swat hot-dry events 2001–2021 from TerraClimate (built by `docs/scripts/build_swat_events.py`)
   and a monthly 1 km NDVI series from MODIS MOD13A1 in `docs/data/swat/`; gallery entries
   for the Swat event composite and a synthetic composite with eight events.
@@ -51,6 +53,8 @@ uses [Semantic Versioning](https://semver.org/).
   simulation and greyscale.
 - `tidy_axes`: four or five ticks at round values on axes and colour bars.
   `set_style(max_ticks=5)` sets a house tick limit, which `check_figure` then checks.
+- `set_style(panel_titles=False)`: recipes leave out panel titles and name the panels in
+  their caption sentence instead.
 - `check_figure` accepts metric-compatible free fonts (Liberation Sans, Arimo, TeX Gyre
   Heros, Liberation Serif, Tinos, TeX Gyre Termes) in place of the journal's fonts, with a
   note.

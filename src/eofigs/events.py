@@ -18,7 +18,13 @@ from matplotlib.patches import Patch
 from eofigs import maps, trends
 from eofigs._colour import NO_DATA_COLOUR, SECONDARY_COLOUR, TEXT_COLOUR
 from eofigs._presets import get_journal, resolve_width
-from eofigs.styling import _STATE, label_panels, new_figure, tidy_axes
+from eofigs.styling import (
+    _STATE,
+    current_panel_titles,
+    label_panels,
+    new_figure,
+    tidy_axes,
+)
 from eofigs.variables import Variable
 from eofigs.variables import variable as lookup_variable
 
@@ -33,10 +39,14 @@ TESTS = ("ttest", "wilcoxon", None)
 MIN_EVENTS = 3
 #: A z-score needs at least this many baseline values for its month.
 MIN_ZSCORE_VALUES = 5
+#: Below this many tested events the caption notes that the test has low power.
+LOW_POWER_EVENTS = 5
 #: Each event in the composite series.
 EVENT_LINE_COLOUR = "#7F7F7F"
-#: Shading of the event period in the series (light muted mustard: hot and dry).
-EVENT_PERIOD_COLOUR = "#F1E2C4"
+#: Series shading while every event is ongoing (muted mustard: hot and dry).
+EVENT_PERIOD_COLOUR = "#E9CE9C"
+#: Lighter shading while only some events are ongoing (events of unequal length).
+EVENT_PARTIAL_COLOUR = "#F6EBD7"
 
 
 class EventWarning(UserWarning):
@@ -142,6 +152,8 @@ def event_composite(
     series : bool, default True
         Add the composite series: the area mean for each event (thin grey), their mean
         (black) and spread (interquartile range, or the range with fewer than 4 events).
+        Shading marks the event period: darker while all events are ongoing (up to the
+        shortest event), lighter while only some are (up to the longest).
     event_rule : str, optional
         How the events were chosen, for the caption sentence.
     alpha, sig_fraction, dot_spacing_mm, stipple, limits, exclude, exclude_label
@@ -153,7 +165,9 @@ def event_composite(
     graticule, north_arrow, scale_bar, legend : bool, default True
         Map elements; the north arrow and scale bar go on the first map.
     labels : str or list of str, optional
-        Panel labels (style default when omitted).
+        Panel labels (style default when omitted). The phase titles above the maps
+        follow the ``panel_titles`` setting of :func:`set_style`; without titles the
+        caption sentence names the phases in panel order.
     width : str or float, default "double"
         Named journal width or width in mm.
     height_mm : float, optional
@@ -519,13 +533,14 @@ class _Panels:
     series_box: tuple[float, float, float, float] | None
 
 
-def _layout(width, height_mm, preset, ratio, n, small, size, legend_mm, series, has_labels):
+def _layout(width, height_mm, preset, ratio, n, small, size, legend_mm, series, has_labels, titles):
     fig_w = resolve_width(width, preset)
     max_h = height_mm if height_mm is not None else maps.HEIGHT_SHARE * preset.max_height_mm
     lat_w, _ = maps._text_mm("35°30′N", small)
     lab_h = small * maps._PT
     left, right, gap = lat_w + 3.0, 4.0, 9.0  # gap: room for the edge longitude labels
-    title = size * maps._PT + 3.0  # phase title (and panel label) above each map
+    # phase title and panel label above each map
+    title = size * maps._PT + 3.0 if (titles or has_labels) else 2.0
     bottom = lab_h + 4.0
     cbar_block = 2.5 + 2 * (small * maps._PT + 1.5) + 3.0
     lw, lh = legend_mm if legend_mm is not None else (0.0, 0.0)
@@ -533,7 +548,7 @@ def _layout(width, height_mm, preset, ratio, n, small, size, legend_mm, series, 
     series_gap = 0.0
     if series:
         series_h = max(32.0, 0.2 * fig_w)
-        series_gap = title + 2.0  # label and room above the series
+        series_gap = size * maps._PT + 5.0  # panel label and series legend above it
         series_bottom = 2 * lab_h + 7.0  # tick labels and axis label
     else:
         series_bottom = 0.0
@@ -572,7 +587,6 @@ def _layout(width, height_mm, preset, ratio, n, small, size, legend_mm, series, 
     if series:
         top = y - bottom - below - series_gap
         series_box = (lat_series, top - series_h, fig_w - lat_series - right, series_h)
-    _ = has_labels
     return _Panels(fig_w, fig_h, boxes, cbar, anchor, series_box)
 
 
@@ -627,6 +641,7 @@ def _draw(
     if holder is not None:
         width, height_mm = maps._size_mm(holder)
     has_labels = o["labels"] is not None or _STATE.get("labels") is not None
+    titles = current_panel_titles()
     lay = _layout(
         width,
         height_mm,
@@ -638,6 +653,7 @@ def _draw(
         legend_mm,
         o["series"],
         has_labels,
+        titles,
     )
     if holder is None:
         with warnings.catch_warnings():
@@ -709,7 +725,8 @@ def _draw(
             gl.left_labels = i == 0
         if i == 0 and (o["north_arrow"] or o["scale_bar"]):
             _furniture(ax, projection, extent, aoi_map, map_w, map_h, size, o)
-        ax.set_title(_phase_title(phase, o["window"], times), size=size, pad=3)
+        if titles:
+            ax.set_title(_phase_title(phase, o["window"], times), size=size, pad=3)
         map_axes.append(ax)
         record_phases[phase] = {
             "significant_percent": significant_percent,
@@ -733,7 +750,7 @@ def _draw(
         sax = holder.add_axes(rect(lay.series_box))
         series_record = _draw_series(sax, composite, used, var, times, small, size)
         panels.append(sax)
-    label_panels(panels, o["labels"])
+    label_texts = [t.get_text() for t in label_panels(panels, o["labels"])]
 
     steps = {p: [int(_steps(e, p)) for e in used] for p in phases}
     record: dict[str, Any] = {
@@ -760,7 +777,10 @@ def _draw(
     }
     if series_record is not None:
         record["series"] = series_record
-    record["caption"] = _caption(record, used, var, grid, times, o, threshold, tested)
+    record["panel_titles"] = titles
+    record["caption"] = _caption(
+        record, used, var, grid, times, o, threshold, tested, None if titles else label_texts
+    )
     fig.eofigs_layout = record
     if holder is not fig:
         holder.eofigs_layout = record
@@ -781,15 +801,31 @@ def _unit(times: pd.DatetimeIndex) -> str:
     return "step"
 
 
-def _phase_title(phase: str, window, times) -> str:
+def _phase_length(phase: str, window, times) -> str | None:
     unit = _unit(times)
-    plural = f"{unit}s"
-    if phase == "before":
-        n = -window[0]
-        return f"Before ({n} {unit if n == 1 else plural})"
-    if phase == "during":
-        return "During"
-    return f"After ({window[1]} {unit if window[1] == 1 else plural})"
+    n = -window[0] if phase == "before" else window[1] if phase == "after" else None
+    if n is None:
+        return None
+    return f"{n} {unit if n == 1 else unit + 's'}"
+
+
+def _phase_title(phase: str, window, times) -> str:
+    length = _phase_length(phase, window, times)
+    return phase.capitalize() + (f" ({length})" if length else "")
+
+
+def _panel_names(phases, window, times, series: bool, labels: list[str]) -> str:
+    """Name the panels in order, for a caption when the panels carry no titles."""
+    names = []
+    for phase in phases:
+        length = _phase_length(phase, window, times)
+        names.append(phase + (f", {length}" if length else ""))
+    if series:
+        names.append("composite series")
+    if labels:
+        return "; ".join(f"{label} {name}" for label, name in zip(labels, names, strict=False))
+    text = "Maps from left to right: " + "; ".join(names[: len(phases)])
+    return text + ("; below: composite series" if series else "")
 
 
 def _furniture(ax, projection, extent, aoi_map, map_w, map_h, size, o) -> None:
@@ -872,8 +908,10 @@ def _draw_series(ax, composite, used, var, times, small, size) -> dict[str, Any]
 
     offsets, values = composite.offsets, composite.series
     lengths = [e.end - e.start + 1 for e in used]
-    period = int(np.median(lengths))
-    ax.axvspan(-0.5, period - 0.5, color=EVENT_PERIOD_COLOUR, linewidth=0, zorder=0)
+    shortest, longest = int(min(lengths)), int(max(lengths))
+    ax.axvspan(-0.5, shortest - 0.5, color=EVENT_PERIOD_COLOUR, linewidth=0, zorder=0)
+    if longest > shortest:
+        ax.axvspan(shortest - 0.5, longest - 0.5, color=EVENT_PARTIAL_COLOUR, linewidth=0, zorder=0)
     ax.axhline(0, color=SECONDARY_COLOUR, linewidth=0.6, linestyle=(0, (3, 2)), zorder=1)
     for row in values:
         ax.plot(offsets, row, color=EVENT_LINE_COLOUR, linewidth=0.6, alpha=0.9, zorder=2)
@@ -908,15 +946,21 @@ def _draw_series(ax, composite, used, var, times, small, size) -> dict[str, Any]
         Line2D([], [], color=EVENT_LINE_COLOUR, linewidth=0.6, label="Each event"),
         Line2D([], [], color=TEXT_COLOUR, linewidth=1.2, label="Mean of events"),
         Patch(facecolor=trends.ENVELOPE_COLOUR, alpha=0.5, label=spread.capitalize()),
-        Patch(facecolor=EVENT_PERIOD_COLOUR, label="Event period (median length)"),
     ]
+    if longest > shortest:
+        handles += [
+            Patch(facecolor=EVENT_PERIOD_COLOUR, label="All events ongoing"),
+            Patch(facecolor=EVENT_PARTIAL_COLOUR, label="Some events ongoing"),
+        ]
+    else:
+        handles.append(Patch(facecolor=EVENT_PERIOD_COLOUR, label="Event period"))
     leg = ax.legend(
         handles=handles,
         loc="lower right",
         bbox_to_anchor=(1.0, 1.0),
         prop={"size": small, "weight": "bold"},
         frameon=False,
-        ncols=4,
+        ncols=len(handles),
         borderaxespad=0.3,
         handlelength=1.6,
     )
@@ -927,7 +971,7 @@ def _draw_series(ax, composite, used, var, times, small, size) -> dict[str, Any]
         "offsets": [int(v) for v in offsets],
         "mean": [_round(v) for v in mean],
         "spread": spread,
-        "period_steps": period,
+        "event_steps": [shortest, longest],
     }
 
 
@@ -938,11 +982,15 @@ def _round(value) -> float | None:
 # ============================================================================ caption
 
 
-def _caption(record, used, var, grid, times, o, threshold, tested) -> str:
+def _caption(record, used, var, grid, times, o, threshold, tested, labels=None) -> str:
     n = len(used)
     unit = _unit(times)
     dates = "; ".join(_event_text(e, times) for e in used)
-    parts = [f"{n} event{'s' if n != 1 else ''} ({dates})."]
+    parts = []
+    if labels is not None:
+        names = _panel_names(o["maps"], o["window"], times, "series" in record, labels)
+        parts.append(f"{names}.")
+    parts.append(f"{n} event{'s' if n != 1 else ''} ({dates}).")
     if o["event_rule"]:
         parts.append(f"Events: {o['event_rule'].rstrip('.')}.")
     baseline = f"the {'monthly ' if record['climatology'] == 'month' else ''}climatology"
@@ -959,10 +1007,16 @@ def _caption(record, used, var, grid, times, o, threshold, tested) -> str:
     )
     parts.append(f"{what} from {baseline} {base}{trend}.")
     w0, w1 = o["window"]
-    parts.append(
-        f"Before: mean of the {-w0} {unit}s before each event; after: mean of the "
-        f"{w1} {unit}s after it; maps show the mean over events."
-    )
+    phase_text = []
+    if "before" in o["maps"]:
+        phase_text.append(f"before: mean of the {-w0} {unit}s before each event")
+    if "after" in o["maps"]:
+        phase_text.append(
+            f"after: mean of the {w1} {unit}s after {'it' if phase_text else 'each event'}"
+        )
+    phase_text.append("maps show the mean over events")
+    sentence = "; ".join(phase_text)
+    parts.append(f"{sentence[0].upper()}{sentence[1:]}.")
     units = trends._plain(var.units)
     limit = f"±{record['limits']:g}{' ' + units if units else ''}"
     if record["limits_rule"] == "p98":
@@ -986,6 +1040,11 @@ def _caption(record, used, var, grid, times, o, threshold, tested) -> str:
             f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
             f"significant ({name} across {n} events, p < {o['alpha']:g})."
         )
+        if n < LOW_POWER_EVENTS:
+            parts.append(
+                f"With only {n} events the test has low power; absence of "
+                f"{what.lower()} does not indicate absence of an effect."
+            )
     elif o["test"] is not None and n < MIN_EVENTS:
         parts.append(f"No significance test: fewer than {MIN_EVENTS} events.")
     if record["excluded_percent"] > 0:
@@ -1006,10 +1065,18 @@ def _caption(record, used, var, grid, times, o, threshold, tested) -> str:
         )
     if "series" in record:
         area = "study area" if o["aoi"] is not None else "map"
+        shortest, longest = record["series"]["event_steps"]
+        if longest > shortest:
+            shading = (
+                f"dark shading: all events ongoing (first {shortest} {unit}"
+                f"{'s' if shortest != 1 else ''}); light shading: some events ongoing "
+                f"(up to {longest} {unit}s)"
+            )
+        else:
+            shading = "shading marks the event period"
         parts.append(
             f"Series: {area}-mean anomaly for each event (grey), their mean (black) "
-            f"and {record['series']['spread']} (band); shading marks the median event "
-            "length."
+            f"and {record['series']['spread']} (band); {shading}."
         )
     return " ".join(parts)
 

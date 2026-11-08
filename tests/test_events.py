@@ -321,3 +321,65 @@ def test_swat_event_composite(sans_font):
         report = eofigs.check_figure(fig)
     assert len(fig.eofigs_layout["events"]) >= 3
     assert report.passed and not [r for r in report.warnings if r.name != "fonts"], str(report)
+
+
+# ----------------------------------------------------------------------------- review 13
+
+
+def test_panel_titles_off_names_the_panels_in_the_caption(sans_font):
+    with eofigs.style("custom", font=sans_font, panel_titles=False):
+        fig = eofigs.event_composite(_injected(noise=0.01), _events())
+        layout = _layout(fig)
+        assert layout["panel_titles"] is False
+        assert not [a.get_title() for a in fig.axes if a.get_title()]
+        assert layout["caption"].startswith(
+            "(a) before, 3 months; (b) during; (c) after, 6 months; (d) composite series. 5 events"
+        )
+        fig = eofigs.event_composite(
+            _injected(noise=0.01), _events(), maps=("during",), series=False, labels=["A"]
+        )
+        assert _layout(fig)["caption"].startswith("A during. 5 events")
+        assert "Maps show the mean over events." in _layout(fig)["caption"]
+    with eofigs.style("custom", font=sans_font, labels=None, panel_titles=False):
+        fig = eofigs.event_composite(_injected(noise=0.01), _events(), maps=("before", "after"))
+        caption = _layout(fig)["caption"]
+        assert caption.startswith(
+            "Maps from left to right: before, 3 months; after, 6 months; below: composite series."
+        )
+        assert "Before: mean of the 3 months before each event; after: mean of the 6 " in caption
+
+
+def test_event_period_shading_for_unequal_lengths(custom_style):
+    events = [(a, b + pd.offsets.MonthBegin(i % 2)) for i, (a, b) in enumerate(_events())]
+    fig = eofigs.event_composite(_injected(noise=0.01), events, maps=("after",))
+    layout = _layout(fig)
+    assert layout["series"]["event_steps"] == [2, 3]
+    assert (
+        "dark shading: all events ongoing (first 2 months); light shading: some events "
+        "ongoing (up to 3 months)." in layout["caption"]
+    )
+    assert "After: mean of the 6 months after each event" in layout["caption"]
+    series = fig.axes[-1]
+    labels = [t.get_text() for t in series.get_legend().get_texts()]
+    assert labels[-2:] == ["All events ongoing", "Some events ongoing"]
+    spans = [p for p in series.patches if p.get_facecolor()[:3] != (1.0, 1.0, 1.0)]
+    assert len(spans) == 2
+    report = eofigs.check_figure(fig)
+    assert report.passed and not [r for r in report.warnings if r.name != "fonts"], str(report)
+
+
+def test_equal_lengths_draw_one_shade_and_low_power_note(custom_style):
+    fig = eofigs.event_composite(_injected(noise=0.01), _events(STARTS[:3]))
+    layout = _layout(fig)
+    assert layout["series"]["event_steps"] == [2, 2]
+    labels = [t.get_text() for t in fig.axes[-1].get_legend().get_texts()]
+    assert labels[-1] == "Event period"
+    assert "shading marks the event period." in layout["caption"]
+    assert (
+        "With only 3 events the test has low power; absence of dots does not indicate "
+        "absence of an effect." in layout["caption"]
+    )
+    fig = eofigs.event_composite(_injected(noise=0.01), _events(), stipple="hatch")
+    assert "low power" not in _layout(fig)["caption"]
+    fig = eofigs.event_composite(_injected(noise=0.01), _events(STARTS[:4]), stipple="hatch")
+    assert "absence of hatching does not indicate" in _layout(fig)["caption"]

@@ -43,6 +43,7 @@ _DEFAULT_STATE: dict[str, Any] = {
     "font": None,
     "font_family": "sans-serif",
     "max_ticks": None,
+    "panel_titles": True,
 }
 _STATE: dict[str, Any] = dict(_DEFAULT_STATE)
 _ORIGINAL_RC: dict[str, Any] | None = None
@@ -84,6 +85,7 @@ def set_style(
     labels: str | None = "(a)",
     label_bold: bool = True,
     max_ticks: int | None = None,
+    panel_titles: bool = True,
 ) -> None:
     """Apply a journal style to matplotlib.
 
@@ -117,6 +119,11 @@ def set_style(
         When set, :func:`check_figure` warns about axes with more tick labels, and
         :func:`tidy_axes` and the recipes use this number. ``None`` (default): no tick
         check; recipes still draw a few ticks at round values.
+    panel_titles : bool, default True
+        Whether recipes put a short title above each panel (for example "Before
+        (3 months)" in :func:`event_composite`). ``False`` follows the house rule that
+        panels carry letters only: the recipes then name the panels in their caption
+        sentence instead.
 
     Raises
     ------
@@ -205,6 +212,7 @@ def set_style(
         font=name,
         font_family=family,
         max_ticks=max_ticks,
+        panel_titles=bool(panel_titles),
     )
 
 
@@ -238,6 +246,11 @@ def current_journal() -> str:
 def current_max_ticks() -> int | None:
     """Tick limit set by :func:`set_style` (``None`` if no house rule is set)."""
     return _STATE.get("max_ticks")
+
+
+def current_panel_titles() -> bool:
+    """Whether recipes draw panel titles (set by :func:`set_style`; ``True`` by default)."""
+    return bool(_STATE.get("panel_titles", True))
 
 
 def new_figure(
