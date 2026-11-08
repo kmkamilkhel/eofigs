@@ -27,8 +27,13 @@ from eofigs.variables import variable as lookup_variable
 __all__ = ["accuracy_scatter"]
 
 #: Statistics that ``stats=`` accepts, in the order the box lists them.
-STATS = ("r2", "r", "nse", "rmse", "rrmse", "mae", "bias", "rbias", "slope", "intercept", "n")
+STATS = (
+    "r2", "r", "nse", "rmse", "rrmse", "nmad", "mae", "bias", "rbias", "slope", "intercept", "n",
+)  # fmt: skip
 FITS = ("ols", "rma", None)
+#: Scale that makes the median absolute deviation equal the standard deviation for normal
+#: errors (NMAD, Höhle and Höhle 2009).
+NMAD_SCALE = 1.4826
 ORIENTATIONS = ("observed_y", "observed_x")
 #: ``density="auto"`` colours points by density above this many pairs.
 DENSITY_THRESHOLD = 1000
@@ -48,6 +53,7 @@ _NAMES = {
     "nse": "NSE",
     "rmse": "RMSE",
     "rrmse": "rRMSE",
+    "nmad": "NMAD",
     "mae": "MAE",
     "bias": "Bias",
     "rbias": "rBias",
@@ -61,11 +67,13 @@ _DEFINITIONS = {
     "nse": "NSE: Nash–Sutcliffe efficiency, 1 − Σ(P − O)²/Σ(O − Ō)²",
     "rmse": "RMSE: root-mean-square error",
     "rrmse": "rRMSE: RMSE as a percentage of the observed mean",
+    "nmad": "NMAD: normalised median absolute deviation of the errors e = P − O, "
+    "1.4826 × median|e − median(e)| (Höhle and Höhle 2009)",
     "mae": "MAE: mean absolute error",
     "bias": "bias: mean of predicted − observed",
     "rbias": "rBias: bias as a percentage of the observed mean",
 }
-_UNIT_STATS = ("rmse", "mae", "bias", "intercept")
+_UNIT_STATS = ("rmse", "nmad", "mae", "bias", "intercept")
 _PERCENT_STATS = ("rrmse", "rbias")
 _CORNERS = ("upper left", "lower right", "upper right", "lower left")
 
@@ -118,9 +126,11 @@ def accuracy_scatter(
     stats : sequence of str, default ("r2", "rmse", "bias", "n")
         Statistics in the box: ``"r2"`` (squared Pearson correlation), ``"r"``, ``"nse"``
         (Nash–Sutcliffe efficiency), ``"rmse"``, ``"rrmse"`` (% of the observed mean),
-        ``"mae"``, ``"bias"`` (mean of predicted − observed), ``"rbias"`` (%),
-        ``"slope"`` and ``"intercept"`` (of the fitted line) and ``"n"``. All of them are
-        in the record whatever is shown.
+        ``"nmad"`` (normalised median absolute deviation of predicted − observed, a robust
+        spread measure common in DEM validation; Höhle and Höhle 2009), ``"mae"``,
+        ``"bias"`` (mean of predicted − observed), ``"rbias"`` (%), ``"slope"`` and
+        ``"intercept"`` (of the fitted line) and ``"n"``. All of them are in the record
+        whatever is shown.
     fit : {"ols", "rma", None}, default "ols"
         Fitted line: ordinary least squares of the y-axis values on the x-axis values,
         reduced major axis, or none.
@@ -362,6 +372,7 @@ def _stats(obs, pred, x, y, fit) -> dict[str, Any]:
         "nse": float(1.0 - np.sum(diff**2) / np.sum((obs - mean_obs) ** 2)),
         "rmse": rmse,
         "rrmse": 100.0 * rmse / mean_obs if mean_obs != 0 else float("nan"),
+        "nmad": float(NMAD_SCALE * np.median(np.abs(diff - np.median(diff)))),
         "mae": float(np.mean(np.abs(diff))),
         "bias": bias,
         "rbias": 100.0 * bias / mean_obs if mean_obs != 0 else float("nan"),
@@ -468,6 +479,8 @@ def _legend_rows(handles, small, width_mm) -> tuple[int, int]:
 
 def _axes(ax, width, height_mm, journal, ticks, use_density, handles, small, size, labels):
     if ax is not None:
+        if use_density:
+            ax.set_anchor("W")  # the square plot keeps to the left, leaving room for the bar
         return ax.get_figure(root=True), ax
     preset = get_journal(journal or _STATE["journal"])
     fig_w = resolve_width(width, preset)

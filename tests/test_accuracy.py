@@ -40,6 +40,21 @@ def test_perfect_and_shifted_predictions(custom_style):
     assert s["mae"] == pytest.approx(2) and s["r2"] == pytest.approx(1)
     assert s["rbias"] == pytest.approx(200 / obs.mean())
     assert s["nse"] == pytest.approx(1 - 4 * obs.size / np.sum((obs - obs.mean()) ** 2))
+    assert s["nmad"] == pytest.approx(0, abs=1e-12)  # a constant error has no spread
+
+
+def test_nmad_is_robust(custom_style):
+    # Hohle and Hohle (2009): 1.4826 * median(|e - median(e)|), about the standard
+    # deviation for normal errors and unaffected by a few blunders
+    rng = np.random.default_rng(3)
+    obs = rng.uniform(100, 4000, 20000)
+    err = rng.normal(5, 8, obs.size)
+    err[:50] = 500  # blunders
+    s = _layout(eofigs.accuracy_scatter(obs, obs + err, density=False))["stats"]
+    e = err
+    assert s["nmad"] == pytest.approx(1.4826 * np.median(np.abs(e - np.median(e))))
+    assert s["nmad"] == pytest.approx(8, rel=0.03)
+    assert s["rmse"] > 2 * s["nmad"]
 
 
 def _layout(fig):
@@ -87,7 +102,8 @@ def test_missing_pairs_are_dropped(custom_style):
 
 
 def test_stat_texts_format():
-    values = dict(r2=0.8123, r=-0.9, nse=0.7, rmse=31.24, rrmse=12.34, mae=20.0, bias=-4.06)
+    values = dict(r2=0.8123, r=-0.9, nse=0.7, rmse=31.24, rrmse=12.34, nmad=7.81, mae=20.0)
+    values["bias"] = -4.06
     values.update(rbias=-0.004, slope=0.93, intercept=8.1, n=12345)
     lines = acc.stat_texts(values, list(acc.STATS), "m")
     assert lines == [
@@ -96,6 +112,7 @@ def test_stat_texts_format():
         "NSE = 0.70",
         "RMSE = 31.2 m",
         "rRMSE = 12.3 %",
+        "NMAD = 7.8 m",
         "MAE = 20.0 m",
         "Bias = −4.1 m",
         "rBias = 0.0 %",
@@ -206,6 +223,12 @@ def test_panels_with_ax_and_labels(custom_style):
     assert axes[0].eofigs_layout["n"] == 300 and axes[1].eofigs_layout["n"] == 100
     assert axes[1].eofigs_layout["stats_loc"] == "lower right"
     assert any(t.get_text() == "(a)" for t in axes[0].texts)
+    assert axes[0].get_anchor() == "C"  # points: the panel stays centred
+    fig, ax = eofigs.new_figure("single")
+    rng = np.random.default_rng(4)
+    many = rng.uniform(0, 100, 2000)
+    eofigs.accuracy_scatter(many, many + rng.normal(0, 5, many.size), ax=ax)
+    assert ax.get_anchor() == "W"  # density: the plot keeps left, leaving room for the bar
 
 
 def test_height_and_max_ticks(sans_font):
