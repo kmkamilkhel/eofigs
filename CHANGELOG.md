@@ -21,6 +21,16 @@ uses [Semantic Versioning](https://semver.org/).
   the map centre, round lengths) and `add_inset` (Natural Earth countries, default de facto
   boundaries bundled; Natural Earth worldviews downloaded on request with a pinned version
   and checksum, and cached).
+- `trend_map`: per-pixel trends (Theil–Sen, Mann–Kendall, computed at full resolution and
+  then reduced to print size; p-values are never averaged) with zero-centred colours,
+  symmetric limits at the rounded 98th percentile, significance dots or hatching where at
+  least half of the pixels in each 1.6 mm cell are significant, hatched grey for
+  non-vegetated and no-data pixels, an optional latitude profile from the full-resolution
+  slope, and a ready caption sentence with the colour limits, the clipped share and the
+  significance rule (`fig.eofigs_layout["caption"]`).
+- Swat growing-season NDVI 2001–2024 (MODIS MOD13A1, 500 m) in `docs/data/swat/`, built by
+  `docs/scripts/build_swat_ndvi.py`; gallery entries for the Swat trend map with and
+  without the latitude profile.
 - `check_figure` checks that single-colour overlays stay distinguishable from the colour
   maps beneath them.
 - `fit_raster` reads http(s) and s3 URLs.
@@ -59,7 +69,9 @@ uses [Semantic Versioning](https://semver.org/).
   1000 dpi for Elsevier, 1200 dpi for Springer).
 - Variable library (`variable`, `register_variable`, `Variable`): 22 Earth observation
   variables in `variables.json` with long names, symbols, mathtext units, cmcrameri colour
-  maps, default ranges and zero-centred anomaly and trend maps; recognises xarray variables
+  maps, default ranges and zero-centred anomaly and trend maps (terracotta–slate for
+  vegetation indices and productivity, `vik` with the physically sensible direction for the
+  others); recognises xarray variables
   from CF attributes and writes CF units in mathtext.
 - `fit_raster`: reduces GeoTIFFs, COGs and xarray rasters to the printed resolution (mean,
   mode or mask fraction), ignores nodata, sets sparse pixels to NaN (`min_valid`), keeps the

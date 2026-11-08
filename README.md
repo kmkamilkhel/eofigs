@@ -34,9 +34,9 @@ journal-ready figures that know the analysis, the variable and the printed size:
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_significance/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_significance.png" alt="Trend and significance"></a><br><b>Trend and significance</b></td>
 </tr>
 <tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_map_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_map_swat.png" alt="Trend map: Swat valley NDVI 2001–2024"></a><br><b>Trend map: Swat valley NDVI 2001–2024</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_profile_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_profile_swat.png" alt="Trend map with latitude profile"></a><br><b>Trend map with latitude profile</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/palettes/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/palettes.png" alt="Built-in palettes"></a><br><b>Built-in palettes</b></td>
-<td width="33%"></td>
-<td width="33%"></td>
 </tr>
 </table>
 
@@ -66,7 +66,7 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
 `register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
-`add_north_arrow`, `add_scale_bar` and `add_inset`.
+`add_north_arrow`, `add_scale_bar`, `add_inset` and `trend_map`.
 
 
 **v0.1**

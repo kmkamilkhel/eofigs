@@ -1,0 +1,85 @@
+# Trend maps
+
+`trend_map` draws per-pixel trends with zero-centred colours and significance marks at a
+size the printed page can show.
+
+```python
+import eofigs
+
+eofigs.set_style("elsevier")
+fig = eofigs.trend_map(ndvi_cube, aoi="swat_boundary.geojson")  # time, y, x with a CRS
+print(fig.eofigs_layout["caption"])  # the caption sentences on limits, dots and grey
+eofigs.save_figure(fig, "figures/fig2")
+```
+
+![Trend of growing-season NDVI around the Swat valley, 2001–2024](gallery/images/trend_map_swat.png)
+
+Theil–Sen trend of growing-season NDVI (MODIS MOD13A1, 500 m, May–September median),
+2001–2024, around the Swat valley (pre-2026 district boundary): the former Swat district
+(before January 2026), now Swat and Bar Swat. Colours are limited to ±0.08 decade⁻¹ (98th
+percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
+significant (Mann–Kendall, p < 0.05). Hatched grey: mean NDVI below 0.1 over the record (not
+vegetated) or no valid trend. Boundaries and names shown do not imply any opinion on the
+legal status of any country or territory. Full code and downloads:
+[gallery](gallery/trend_map_swat.md).
+
+## How it works
+
+1. **The trend is computed at full resolution** with [`trend`](trends.md) (Theil–Sen
+   slope, Mann–Kendall test), or taken from `slope=` and `pvalue=` grids.
+2. **Then it is reduced to print size**: slopes are averaged to the printed pixels;
+   p-values are never averaged.
+3. **Significance at print size.** The map is divided into cells of about 1.6 mm
+   (`dot_spacing_mm`). A cell gets a dot (or hatching with `stipple="hatch"`) when at least
+   half (`sig_fraction`) of its valid full-resolution pixels are significant. Dots are
+   0.35 mm, dark with a thin white edge, so they read on both ends of the colour map.
+4. **Colours** come from the variable library and are centred exactly on zero. Vegetation
+   indices and productivity use terracotta (browning) to slate teal (greening); other
+   variables use `vik` in the physically sensible direction (see
+   [Variables](variables.md)). The limits are symmetric, at the 98th percentile of
+   |slope| rounded up (`limits=`), with arrows on the colour bar when values are clipped.
+5. **Not vegetated.** For vegetation indices, pixels whose mean over the record is below
+   0.1 (rock, snow, ice) are left out and drawn in hatched grey (`exclude=`; plain grey
+   would be too close to weak greening for colour-blind readers). Pixels without a valid
+   trend are hatched grey as well.
+
+## The caption sentence
+
+Journals expect the caption to say when colours are clipped. `trend_map` writes it with
+the exact numbers:
+
+```python
+fig.eofigs_layout["caption"]
+# 'Colours are limited to ±0.08 decade⁻¹ (98th percentile of |slope|); 1.9 % of pixels
+#  exceed this. Dots: at least 50 % of 500 m pixels significant (Mann–Kendall, p < 0.05).
+#  Hatched grey: mean NDVI below 0.1 over the record (not vegetated) or no valid trend
+#  (too few valid observations).'
+```
+
+`fig.eofigs_layout` also records the limits, the clipped share, the share of significant
+pixels, the number of marks and the cell size.
+
+## Latitude profile
+
+`latitude_profile=True` adds a panel with the median and interquartile range of the
+full-resolution slope in latitude bands about 2 mm tall, from valid pixels only; bands with
+fewer than 20 pixels are skipped. The bands line up with the map.
+
+![Trend map with latitude profile](gallery/images/trend_profile_swat.png)
+
+## Inputs
+
+| Argument | Use |
+|---|---|
+| `data` | a time-series cube (`time`, `y`, `x`) with a CRS; `trend` is run on it |
+| `slope`, `pvalue` | precomputed grids on the same grid; without `pvalue` there are no marks |
+| `alpha`, `sig_fraction`, `dot_spacing_mm`, `stipple` | the significance rule and its marks |
+| `limits` | `"p98"` (default), a number, or `None` for the largest absolute slope |
+| `exclude` | `"auto"`, a threshold on the record mean, a boolean grid, or `None` |
+| `aoi` | study area outline; the map then shows the study area with a margin |
+| `ax`, `subfigure` | draw into existing map axes or into one panel of a larger figure |
+
+The Swat NDVI series is in
+[`docs/data/swat/`](https://github.com/kmkamilkhel/eofigs/tree/main/docs/data/swat), built
+by `docs/scripts/build_swat_ndvi.py` from MODIS MOD13A1 v6.1 (NASA LP DAAC, through the
+Microsoft Planetary Computer); it is not part of the installed package.

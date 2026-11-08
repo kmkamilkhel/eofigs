@@ -45,6 +45,7 @@ nav:
   - Large rasters: rasters.md
   - Study area maps: study-area.md
   - Trends: trends.md
+  - Trend maps: trend-map.md
   - Figure sets: figure-sets.md
   - API reference: api.md
   - Changelog: changelog.md

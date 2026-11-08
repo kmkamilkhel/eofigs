@@ -14,8 +14,9 @@ result.significant  # p < 0.05
 ![Trend of a synthetic annual NDVI series and its significance](gallery/images/trend_significance.png)
 
 The figure shows a synthetic annual NDVI series (2000–2024) with greening and browning
-regions and noise: (a) the Theil–Sen slope with the library's trend colours, (b) the pixels
-where the Mann–Kendall test gives p < 0.05. The full script is on the
+regions and noise, drawn with [`trend_map`](trend-map.md): the Theil–Sen slope with the
+library's vegetation trend colours, and hatching where the Mann–Kendall test gives
+p < 0.05 for at least half of the pixels in each cell. The full script is on the
 [gallery page](gallery/trend_significance.md).
 
 ## Output
