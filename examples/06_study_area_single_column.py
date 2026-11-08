@@ -1,9 +1,10 @@
 """Study area map: single column.
 
 The Swat valley map at single-column width (90 mm). With no room beside the map, eofigs
-puts the locator inset, the legend and the north arrow with the scale bar in the emptiest
-parts of the map (outside the study area), and the elevation colour bar below it; the
-figure height follows the shape of the study area. Outline: former Swat district (before
+puts the locator inset and the north arrow with the scale bar in the emptiest parts of the
+map, clear of the outline, the towns and their labels; the legend finds no such place, so
+it goes below the map with the elevation colour bar. The figure height follows the shape of
+the study area, up to 75 % of the journal's maximum height. Outline: former Swat district (before
 January 2026), now Swat and Bar Swat (geoBoundaries). Produced using Copernicus
 WorldDEM™-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 provided
 under COPERNICUS by the European Union and ESA; all rights reserved. © ESA WorldCover

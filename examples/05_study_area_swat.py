@@ -3,11 +3,12 @@
 Swat valley (pre-2026 district boundary), Khyber Pakhtunkhwa, Pakistan, as a 1.5-column
 (140 mm) study area map with the locator inset and legend beside the map. The outline is
 the former Swat district (before January 2026), now Swat and Bar Swat (geoBoundaries,
-2019 boundaries). Grey hillshade with semi-transparent elevation colours (Copernicus DEM
-GLO-90), 90 m cells where at least half of the 10 m pixels are tree cover (ESA WorldCover
-2021), towns (GeoNames), north arrow to true north, scale bar and graticule. Produced using
-Copernicus WorldDEM™-90 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018
-provided under COPERNICUS by the European Union and ESA; all rights reserved. © ESA
+2019 boundaries). Grey hillshade with light elevation colours (Copernicus DEM GLO-90),
+90 m cells where at least half of the 10 m pixels are tree cover (ESA WorldCover 2021,
+hillshade showing through), towns (GeoNames), north arrow to true north, scale bar and
+graticule. Produced using Copernicus WorldDEM™-90 © DLR e.V. 2010-2014 and © Airbus
+Defence and Space GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA;
+all rights reserved. © ESA
 WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed by
 ESA WorldCover consortium. Towns: GeoNames (CC BY 4.0). Locator inset: Natural Earth
 (default worldview). Boundaries and names shown do not imply any opinion on the legal
