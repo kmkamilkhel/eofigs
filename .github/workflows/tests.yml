@@ -89,3 +89,46 @@ jobs:
         run: |
           coverage json -o coverage.json
           python .github/scripts/check_coverage.py coverage.json
+
+  package:
+    name: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - name: Check the contents of the wheel and the source distribution
+        run: python .github/scripts/check_dist.py dist
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  install:
+    name: install (${{ matrix.os }})
+    needs: package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
+      - name: Install the wheel (dependencies from PyPI) in a fresh environment
+        run: pip install dist/*.whl
+      - name: Draw, check and save a figure with the installed package
+        run: cd "$RUNNER_TEMP" && python "$GITHUB_WORKSPACE/.github/scripts/smoke_test.py"

@@ -68,7 +68,17 @@ Changelog = "https://github.com/kmkamilkhel/eofigs/blob/main/CHANGELOG.md"
 path = "src/eofigs/__init__.py"
 
 [tool.hatch.build.targets.sdist]
-include = ["src/eofigs", "tests", "conftest.py", "README.md", "LICENSE", "CHANGELOG.md", "CITATION.cff"]
+# Leading slashes anchor the patterns at the root (a bare "README.md" would also match
+# docs/data/swat/README.md).
+include = [
+    "/src/eofigs",
+    "/tests",
+    "/conftest.py",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+    "/CITATION.cff",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eofigs"]
