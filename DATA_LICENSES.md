@@ -83,6 +83,15 @@ under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/) and accessed
 Microsoft Planetary Computer. Changed: Swat-mean monthly maximum temperature and
 precipitation 2001–2021, their z-scores per calendar month, and the hot-dry event table.
 
+### `docs/data/swat/swat_icesat2_atl08_dem.csv`: ICESat-2 ATL08 and Copernicus DEM
+
+ICESat-2 terrain heights from ATLAS/ICESat-2 L3A Land and Vegetation Height, Version 7
+(NASA National Snow and Ice Data Center DAAC, doi:10.5067/ATLAS/ATL08.007). NSIDC states that
+these data are freely, openly and fully available to use without restrictions, provided
+the data are cited. Changed: filtered land segments over Swat, heights converted from the
+WGS 84 ellipsoid to EGM2008 heights. The DEM columns are interpolated from
+`swat_dem_90m.tif`, so the Copernicus DEM notice above applies to them as well.
+
 ## References
 
 - Abatzoglou, J. T., Dobrowski, S. Z., Parks, S. A., & Hegewisch, K. C. (2018). TerraClimate,
@@ -93,6 +102,11 @@ precipitation 2001–2021, their z-scores per calendar month, and the hot-dry ev
   NASA EOSDIS Land Processes Distributed Active Archive Center.
   https://doi.org/10.5067/MODIS/MOD13A1.061
 
+- NASA National Snow and Ice Data Center DAAC. ATLAS/ICESat-2 L3A Land and Vegetation
+  Height, Version 7. https://doi.org/10.5067/ATLAS/ATL08.007
+- Piñeiro, G., Perelman, S., Guerschman, J. P., & Paruelo, J. M. (2008). How to evaluate
+  models: Observed vs. predicted or predicted vs. observed? *Ecological Modelling* 216:
+  316–322. https://doi.org/10.1016/j.ecolmodel.2008.05.006
 - Runfola, D., et al. (2020). geoBoundaries: A global database of political administrative
   boundaries. *PLoS ONE* 15(4): e0231866. https://doi.org/10.1371/journal.pone.0231866
 - Zanaga, D., et al. (2022). ESA WorldCover 10 m 2021 v200. Zenodo.

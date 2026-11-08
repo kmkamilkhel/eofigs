@@ -19,6 +19,7 @@ in [DATA_LICENSES.md](../../../DATA_LICENSES.md).
 | `swat_ndvi_monthly_1km.tif` | MODIS Terra MOD13A1 v6.1 as above (built by `docs/scripts/build_swat_events.py`) | per month 2001–2021: median of the 16-day composites starting in that month with reliability 0 or 1; nearest-neighbour reprojection to the 500 m grid, then the mean of 2 x 2 cells (at least 2 valid) on a 1 km grid; nodata farther than 2 km outside the outline; 252 bands named YYYY-MM, int16 scaled by 0.002, nodata -32768 | NASA, no restrictions (cite Didan 2021) |
 | `swat_terraclimate_monthly.csv` | TerraClimate monthly tmax and ppt, Planetary Computer Zarr (1958–2021) | Swat-mean of the cells whose centres lie inside the outline, 2001–2021; z-scores per calendar month (2001–2021) | CC0 1.0 |
 | `swat_hot_dry_events.csv` | from `swat_terraclimate_monthly.csv` | May–September months with tmax z ≥ +1 and ppt z ≤ −1; consecutive months merged; thresholds relaxed to 0.75 only if fewer than 3 events (not needed: 3 events) | CC0 1.0 |
+| `swat_icesat2_atl08_dem.csv` | ICESat-2 ATL08 v007 land segments 2019–2024 (NASA NSIDC DAAC, doi:10.5067/ATLAS/ATL08.007), cut to the Swat box with NASA Harmony (built by `docs/scripts/build_swat_icesat2.py`, needs an Earthdata login) | strong beams, valid `h_te_best_fit`, `h_te_uncertainty` ≤ 5 m, snow-free land (`segment_snowcover` = 1), centre inside the outline; heights converted from the WGS 84 ellipsoid to EGM2008 with PROJ and NGA's 2.5-minute EGM2008 grid (`us_nga_egm08_25`; geoid undulation −27 to −39 m over Swat; ITRF2014 and WGS 84 differ by centimetres, ignored); DEM elevation and slope interpolated bilinearly from `swat_dem_90m.tif`; 2 124 rows | NASA, no restrictions (cite the dataset); DEM columns: Copernicus DEM licence |
 | `swat_towns.geojson` | GeoNames (PK dump) | Mingora, Saidu Sharif, Matta, Khwazakhela, Bahrain, Kalam: populated places inside the outline, most populous match per name; `geonameid` kept | CC BY 4.0 |
 
 **Boundary status.** The outline is the **former Swat district (before January 2026), now
@@ -33,5 +34,5 @@ Produced using Copernicus WorldDEM™-90 © DLR e.V. 2010-2014 and © Airbus Def
 GmbH 2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved.
 © ESA WorldCover project 2021 / Contains modified Copernicus Sentinel data (2021) processed
 by ESA WorldCover consortium. NDVI: MODIS MOD13A1 v6.1 (NASA LP DAAC). Climate: TerraClimate
-(CC0 1.0). Boundary: geoBoundaries. Towns: GeoNames (CC BY 4.0). Locator:
+(CC0 1.0). ICESat-2: ATL08 v007 (NASA NSIDC DAAC). Boundary: geoBoundaries. Towns: GeoNames (CC BY 4.0). Locator:
 Natural Earth.
