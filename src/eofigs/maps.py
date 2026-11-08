@@ -25,15 +25,24 @@ from eofigs.styling import _STATE, MAX_TICKS, new_figure, tidy_axes
 
 __all__ = ["add_inset", "add_north_arrow", "add_scale_bar", "study_area_map"]
 
-#: Overlay fill: Okabe-Ito bluish green, which stays distinguishable from batlow elevation colours.
+#: Overlay fill: Okabe-Ito bluish green.
 OVERLAY_COLOUR = "#009E73"
-OVERLAY_ALPHA = 0.85
+#: Overlay opacity: the hillshade shows through, so slopes stay readable under the overlay.
+OVERLAY_ALPHA = 0.75
 ELEVATION_ALPHA = 0.45
+#: Elevation colours under an overlay: the light, low-chroma half of cmcrameri lapaz.
+RELIEF_RANGE = ("cmc.lapaz", 0.5, 1.0)
 AOI_COLOUR = TEXT_COLOUR
 INSET_AOI_COLOUR = "#D55E00"  # Okabe-Ito vermillion
 LAYOUTS = ("auto", "inside", "side")
 #: An item inside the map needs this share of empty space under it.
 MIN_EMPTY = 0.85
+#: Items inside the map keep this distance (mm) from the study area outline.
+CLEARANCE_MM = 2.0
+#: Space (mm) between the north arrow and the scale bar.
+FURNITURE_GAP_MM = 2.0
+#: Without height_mm, a map is at most this share of the journal's maximum height.
+HEIGHT_SHARE = 0.75
 _PT = 25.4 / 72  # mm per point
 _PAD_MM = 1.5
 
@@ -147,10 +156,17 @@ def add_north_arrow(
     >>> round(arrow.angle, 1)  # west of the central meridian: true north is clockwise of up
     1.5
     """
+    angle = north_angle(ax)
+    transform = ax.transAxes if bbox_to_anchor is not None else None
+    artist = _arrow_box(angle, loc, bbox_to_anchor, transform, size_mm)
+    ax.add_artist(artist)
+    return artist
+
+
+def _arrow_box(angle, loc, bbox_to_anchor, transform, size_mm=7.0, borderpad=0.3):
     from matplotlib.offsetbox import AnchoredOffsetbox, DrawingArea, TextArea, VPacker
     from matplotlib.transforms import Affine2D
 
-    angle = north_angle(ax)
     length = size_mm / _PT  # points
     half = length * 0.32
     area = DrawingArea(length, length, 0, 0)
@@ -171,13 +187,12 @@ def add_north_arrow(
         child=box,
         frameon=False,
         pad=0.2,
-        borderpad=0.3,
+        borderpad=borderpad,
         bbox_to_anchor=bbox_to_anchor,
-        bbox_transform=ax.transAxes if bbox_to_anchor is not None else None,
+        bbox_transform=transform,
     )
     artist.angle = angle
     artist.set_zorder(8)
-    ax.add_artist(artist)
     return artist
 
 
@@ -186,13 +201,18 @@ def add_north_arrow(
 
 def _metres_per_unit(ax: Axes) -> tuple[float, float]:
     """Ground metres per data unit at the map centre, and the centre latitude."""
-    import cartopy.crs as ccrs
-    import pyproj
-
     projection = getattr(ax, "projection", None)
     if projection is None:
         raise ValueError("add_scale_bar needs a map (cartopy GeoAxes) to know distances.")
-    x0, x1, y0, y1 = ax.get_extent()
+    return _ground_scale(projection, ax.get_extent())
+
+
+def _ground_scale(projection, extent) -> tuple[float, float]:
+    """Ground metres per map unit at the centre of ``extent``, and the centre latitude."""
+    import cartopy.crs as ccrs
+    import pyproj
+
+    x0, x1, y0, y1 = extent
     xc, yc = (x0 + x1) / 2, (y0 + y1) / 2
     lon, lat = ccrs.PlateCarree().transform_point(xc, yc, projection)
     crs = pyproj.CRS.from_user_input(projection)
@@ -259,12 +279,19 @@ def add_scale_bar(
     >>> eofigs.add_scale_bar(ax).length_km  # about 22 % of a 60 km wide map
     10
     """
-    from matplotlib_scalebar.scalebar import ScaleBar
-
     metres_per_unit, _ = _metres_per_unit(ax)
     x0, x1, _, _ = ax.get_extent()
     width_km = abs(x1 - x0) * metres_per_unit / 1000
     km = length_km if length_km is not None else nice_length(fraction * width_km)
+    transform = ax.transAxes if bbox_to_anchor is not None else None
+    bar = _bar_artist(metres_per_unit, km, loc, bbox_to_anchor, transform)
+    ax.add_artist(bar)
+    return bar
+
+
+def _bar_artist(metres_per_unit, km, loc, bbox_to_anchor, transform, border_pad=0.3):
+    from matplotlib_scalebar.scalebar import ScaleBar
+
     km = int(km) if float(km).is_integer() else km
     units, value = ("km", km) if km >= 1 else ("m", round(km * 1000))
     size = mpl.rcParams["font.size"]
@@ -274,6 +301,7 @@ def add_scale_bar(
         fixed_value=value,
         fixed_units=units,
         location=loc,
+        rotation="horizontal-only",
         scale_loc="top",
         length_fraction=None,
         width_fraction=0.012,
@@ -282,16 +310,32 @@ def add_scale_bar(
         box_alpha=0.85,
         frameon=True,
         pad=0.3,
-        border_pad=0.3,
+        border_pad=border_pad,
         sep=2,
         font_properties={"weight": "bold", "size": size},
         bbox_to_anchor=bbox_to_anchor,
-        bbox_transform=ax.transAxes if bbox_to_anchor is not None else None,
+        bbox_transform=transform,
     )
     bar.length_km = km
     bar.set_zorder(8)
-    ax.add_artist(bar)
     return bar
+
+
+def _bar_lengths(width_km: float, fraction: float = 0.22, smallest: float = 0.08) -> list[float]:
+    """Scale bar lengths to try, longest first.
+
+    The round length near ``fraction`` of the map width, then shorter round lengths down to
+    ``smallest`` of the map width.
+    """
+    first = nice_length(fraction * width_km)
+    lengths = [first]
+    power = 10 ** math.floor(math.log10(first))
+    for p in (power, power / 10):
+        for m in (5, 2.5, 2, 1):
+            value = m * p
+            if value < first - 1e-12 and value >= smallest * width_km and value not in lengths:
+                lengths.append(value)
+    return sorted(lengths, reverse=True)
 
 
 # ============================================================================ inset
@@ -385,7 +429,7 @@ def add_inset(
     fig = ax.figure
     if rect is None:
         pos = ax.get_position()
-        fig_w, fig_h = (v * MM_PER_INCH for v in fig.get_size_inches())
+        fig_w, fig_h = _size_mm(fig)
         ax_w_mm = pos.width * fig_w
         w_mm = width_mm or max(20.0, ax_w_mm / 3)
         h_mm = w_mm * (y1 - y0) / (x1 - x0)
@@ -433,7 +477,8 @@ def add_inset(
 # ============================================================================ layout
 
 
-_ANCHORS = {
+#: Candidate positions inside the map: (x, y) of the item as a share of the free space.
+_POSITIONS = {
     "upper left": (0.0, 1.0),
     "upper right": (1.0, 1.0),
     "lower left": (0.0, 0.0),
@@ -442,6 +487,14 @@ _ANCHORS = {
     "lower center": (0.5, 0.0),
     "center left": (0.0, 0.5),
     "center right": (1.0, 0.5),
+    "left, 3/4 up": (0.0, 0.75),
+    "left, 1/4 up": (0.0, 0.25),
+    "right, 3/4 up": (1.0, 0.75),
+    "right, 1/4 up": (1.0, 0.25),
+    "top, 1/4 across": (0.25, 1.0),
+    "top, 3/4 across": (0.75, 1.0),
+    "bottom, 1/4 across": (0.25, 0.0),
+    "bottom, 3/4 across": (0.75, 0.0),
 }
 _PREFERENCE = {
     "inset": ("upper right", "upper left", "lower right", "lower left"),
@@ -452,9 +505,9 @@ _PREFERENCE = {
 
 def _box_at(loc: str, w: float, h: float, width: float, height: float, pad: float):
     """Box (x0, y0, x1, y1) in mm of a w x h item at ``loc`` inside a width x height map."""
-    fx, fy = _ANCHORS[loc]
-    x0 = pad if fx == 0 else width - pad - w if fx == 1 else (width - w) / 2
-    y0 = pad if fy == 0 else height - pad - h if fy == 1 else (height - h) / 2
+    fx, fy = _POSITIONS[loc]
+    x0 = pad + fx * (width - 2 * pad - w)
+    y0 = pad + fy * (height - 2 * pad - h)
     return (x0, y0, x0 + w, y0 + h)
 
 
@@ -467,32 +520,46 @@ def _emptiness(box, occupied) -> float:
     return 1.0 - area.intersection(occupied).area / area.area
 
 
+def _best_position(name, w, h, occupied, clear, width, height, taken):
+    """Emptiest position for a w x h item that avoids ``clear`` and the ``taken`` boxes."""
+    from shapely.geometry import box as make_box
+
+    if w > width - 2 * _PAD_MM or h > height - 2 * _PAD_MM:
+        return None
+    preference = _PREFERENCE.get(name, ())
+    best = None
+    for loc in _POSITIONS:
+        box = _box_at(loc, w, h, width, height, _PAD_MM)
+        shape = make_box(*box)
+        if any(shape.intersects(make_box(*b)) for b in taken):
+            continue
+        if clear is not None and shape.intersection(clear).area > 1e-6:
+            continue
+        empty = _emptiness(box, occupied)
+        rank = preference.index(loc) if loc in preference else len(preference)
+        score = (round(empty, 2), -rank)
+        if best is None or score > best[0]:
+            best = (score, loc, box, empty)
+    return None if best is None else best[1:]
+
+
 def place_items(
-    sizes: dict[str, tuple[float, float]], occupied, width: float, height: float
+    sizes: dict[str, tuple[float, float]], occupied, width: float, height: float, clear=None
 ) -> dict[str, tuple[str, tuple[float, float, float, float], float]]:
     """Put each item in the emptiest free position of a map (all sizes in mm).
 
     Items are placed in the order given, each in the position with the most empty space
-    under it (corners and edge mid-points; ties go to the conventional corner), without
-    overlapping items placed before. Returns ``{name: (loc, box, emptiness)}``.
+    under it (corners, edge mid-points and quarter points; ties go to the conventional
+    corner), without overlapping items placed before or touching ``clear`` (a shapely
+    geometry, for example the study area outline, points and labels). Items that find no
+    such position are left out. Returns ``{name: (loc, box, emptiness)}``.
     """
-    from shapely.geometry import box as make_box
-
     placed: dict[str, tuple[str, tuple[float, float, float, float], float]] = {}
     for name, (w, h) in sizes.items():
-        preference = _PREFERENCE.get(name, ())
-        best = None
-        for loc in _ANCHORS:
-            box = _box_at(loc, w, h, width, height, _PAD_MM)
-            if any(make_box(*box).intersects(make_box(*b)) for _, b, _ in placed.values()):
-                continue
-            empty = _emptiness(box, occupied)
-            rank = preference.index(loc) if loc in preference else len(preference)
-            score = (round(empty, 2), -rank)
-            if best is None or score > best[0]:
-                best = (score, loc, box, empty)
+        taken = [b for _, b, _ in placed.values()]
+        best = _best_position(name, w, h, occupied, clear, width, height, taken)
         if best is not None:
-            placed[name] = (best[1], best[2], best[3])
+            placed[name] = best
     return placed
 
 
@@ -506,7 +573,85 @@ class _Layout:
     map_box: tuple[float, float, float, float]  # left, bottom, width, height
     side_box: tuple[float, float, float, float] | None = None
     colourbar_box: tuple[float, float, float, float] | None = None
+    legend_anchor: tuple[float, float] | None = None  # upper left corner, below the map
+    furniture: tuple[str, float | None] | None = None  # arrangement, scale bar length (km)
     items: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class _FurnitureSpec:
+    """What is needed to size the north arrow and scale bar before the map exists."""
+
+    arrow: bool
+    bar: bool
+    metres_per_unit: float
+    width_units: float
+
+
+def _measure_furniture(spec: _FurnitureSpec, map_w: float, map_h: float, lengths):
+    """Sizes in mm of the north arrow and of scale bars of the given lengths."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+
+    # the scale bar's thickness is a share of the map height, so the probe has the map's size
+    size = (max(map_w, 10.0) / MM_PER_INCH, max(map_h, 10.0) / MM_PER_INCH)
+    probe = Figure(figsize=size, dpi=200, layout="none")
+    FigureCanvasAgg(probe)
+    ax = probe.add_axes((0, 0, 1, 1))
+    ax.set_xlim(0, spec.width_units)
+    ax.set_axis_off()
+    arrow = _arrow_box(0.0, "lower left", None, None) if spec.arrow else None
+    if arrow is not None:
+        ax.add_artist(arrow)
+    bars = {}
+    for km in lengths if spec.bar else ():
+        bars[km] = _bar_artist(spec.metres_per_unit, km, "lower left", None, None)
+        ax.add_artist(bars[km])
+    probe.canvas.draw()
+    renderer = probe.canvas.get_renderer()
+
+    def mm(bbox):
+        return bbox.width / probe.dpi * MM_PER_INCH, bbox.height / probe.dpi * MM_PER_INCH
+
+    arrow_mm = mm(arrow.get_window_extent(renderer)) if arrow is not None else None
+    return arrow_mm, {km: mm(bar.info.window_extent) for km, bar in bars.items()}
+
+
+def _furniture_variants(spec: _FurnitureSpec | None, map_w: float, map_h: float):
+    """North arrow and scale bar arrangements to try, in order of preference.
+
+    Returns a list of ``(arrangement, length_km, (w, h))``: the longest scale bar first,
+    with the arrow above it ("stacked") or beside it ("beside").
+    """
+    if spec is None or not (spec.arrow or spec.bar):
+        return []
+    width_km = spec.width_units * spec.metres_per_unit / 1000
+    lengths = _bar_lengths(width_km) if spec.bar else []
+    arrow, bars = _measure_furniture(spec, map_w, map_h, lengths)
+    if not spec.bar:
+        return [("arrow", None, arrow)]
+    if not spec.arrow:
+        return [("bar", km, bars[km]) for km in lengths]
+    gap = FURNITURE_GAP_MM
+    out = []
+    for km in lengths:
+        (aw, ah), (bw, bh) = arrow, bars[km]
+        out.append(("stacked", km, (max(aw, bw), bh + gap + ah)))
+        out.append(("beside", km, (bw + gap + aw, max(ah, bh))))
+    return out
+
+
+def _place_furniture(variants, occupied, clear, width, height, taken):
+    """Position and arrangement for the north arrow and scale bar (or None)."""
+    best = None
+    for arrangement, km, (w, h) in variants:
+        pos = _best_position("furniture", w, h, occupied, clear, width, height, taken)
+        if pos is None:
+            continue
+        if pos[2] >= MIN_EMPTY:
+            return pos, (arrangement, km)
+        if best is None or pos[2] > best[0][2] + 1e-9:
+            best = (pos, (arrangement, km))
+    return best
 
 
 def _text_mm(text: str, size: float, weight: str = "normal") -> tuple[float, float]:
@@ -630,6 +775,24 @@ def _overlay_mask(values: np.ndarray, attrs: dict, threshold: float | None) -> n
         threshold = 50.0 if percent else 0.5
     with np.errstate(invalid="ignore"):
         return values >= threshold
+
+
+def relief_cmap() -> ListedColormap:
+    """Light, low-chroma elevation colours used under an overlay (the light half of lapaz).
+
+    Under a single-colour overlay such as tree cover, strong elevation colours compete
+    with the overlay. This map keeps relief readable and passes the overlay colour check
+    for Okabe-Ito bluish green by a wide margin.
+
+    Examples
+    --------
+    >>> from eofigs.maps import relief_cmap
+    >>> relief_cmap().name
+    'lapaz_light'
+    """
+    name, low, high = RELIEF_RANGE
+    colours = mpl.colormaps[name](np.linspace(low, high, 255))
+    return ListedColormap(colours, name="lapaz_light").with_extremes(bad=NO_DATA_COLOUR)
 
 
 # ============================================================================ labels
@@ -758,6 +921,7 @@ def study_area_map(
     height_mm: float | None = None,
     journal: str | None = None,
     ax: Axes | None = None,
+    subfigure: Any = None,
 ) -> Figure:
     """Draw a publication-ready study area map.
 
@@ -765,8 +929,8 @@ def study_area_map(
     elevation colours, an optional single-colour overlay (for example forest), labelled
     points, a graticule, a north arrow pointing to true north, a scale bar, a legend and a
     locator inset. Rasters are reduced to the printed resolution first (:func:`fit_raster`),
-    so large DEMs are fine. The figure height follows the shape of the study area, within
-    the journal's maximum height.
+    so large DEMs are fine. The figure height follows the shape of the study area, up to
+    three quarters of the journal's maximum height.
 
     Parameters
     ----------
@@ -775,18 +939,19 @@ def study_area_map(
         otherwise the AOI's UTM zone.
     dem : path, URL or DataArray, optional
         Elevation in metres, with a CRS; drawn as hillshade plus elevation colours with a
-        colour bar.
+        colour bar. The colours are cmcrameri batlow, or the light half of lapaz when an
+        overlay is drawn, so the overlay stands out.
     overlay : path, URL or DataArray, optional
         A raster drawn in one colour where it is True, or where it reaches
         ``overlay_threshold`` (default 50 for percentages, 0.5 for fractions), for
-        example tree cover.
+        example tree cover. The hillshade shows through it.
     points : GeoDataFrame or path, optional
         Places to mark, with a CRS.
     labels : str or None, default "name"
         Column of ``points`` with the labels; ``None`` for no labels. Labels are bold with
         a white halo and placed so that they overlap neither each other nor the outline.
     aoi_label, overlay_label, points_label : str
-        Legend entries. ``overlay_label`` defaults to the overlay's long name and threshold.
+        Legend entries. ``overlay_label`` defaults to the overlay's long name.
     overlay_threshold : float, optional
         Value from which the overlay is drawn.
     overlay_colour : str, default "#009E73" (Okabe-Ito bluish green)
@@ -801,29 +966,37 @@ def study_area_map(
     graticule, north_arrow, scale_bar, legend : bool, default True
         Map elements to draw. The graticule has at most four labelled lines per side.
     layout : {"auto", "inside", "side"}, default "auto"
-        ``"inside"`` puts inset and legend in empty corners of the map, ``"side"`` puts
-        them in a column beside it. ``"auto"`` uses ``"side"`` for tall study areas when
-        the figure is at least 120 mm wide. An inset or legend is moved beside the map
-        whenever no position inside it is at least 85 % empty.
+        ``"inside"`` puts the inset, legend, north arrow and scale bar in empty parts of
+        the map, ``"side"`` puts inset and legend in a column beside it. ``"auto"`` uses
+        ``"side"`` for tall study areas when the figure is at least 120 mm wide. Items
+        inside the map keep 2 mm from the outline and clear of points and labels; a legend
+        that finds no such place goes below the map, and an inset moves the map to the
+        side layout.
     width : str or float, default "single"
         Named journal width or width in mm.
     height_mm : float, optional
-        Figure height; by default it follows the study area's shape.
+        Figure height; by default it follows the study area's shape, up to 75 % of the
+        journal's maximum height.
     journal : str, optional
         Journal preset (defaults to the one set by :func:`set_style`).
     ax : cartopy GeoAxes, optional
         Draw into existing map axes (inside layout, no automatic size).
+    subfigure : matplotlib SubFigure, optional
+        Draw into a subfigure, for example one panel of ``fig.subfigures(1, 2)``: the map
+        and its legend, inset and colour bar are laid out within the subfigure's area
+        (``width`` and ``height_mm`` are then taken from it).
 
     Returns
     -------
     matplotlib.figure.Figure
-        The map. ``fig.eofigs_layout`` records the layout chosen and where each element
-        went.
+        The map (the whole figure when drawn into a subfigure). ``fig.eofigs_layout``
+        records the layout chosen and where each element went.
 
     Raises
     ------
     ValueError
-        For inputs without a CRS, an unknown layout, or ``ax`` that is not a map.
+        For inputs without a CRS, an unknown layout, ``ax`` that is not a map, or both
+        ``ax`` and ``subfigure``.
 
     Notes
     -----
@@ -837,15 +1010,15 @@ def study_area_map(
         raise ValueError(f"layout must be one of {LAYOUTS} (got {layout!r}).")
     if ax is not None and not isinstance(ax, GeoAxes):
         raise ValueError("ax must be a cartopy GeoAxes; or leave ax=None to create the map.")
+    if ax is not None and subfigure is not None:
+        raise ValueError("Pass either ax or subfigure, not both.")
     aoi_gdf = _as_gdf(aoi, "aoi")
     crs = map_crs(aoi_gdf) if ax is None else _crs_of(ax)
     aoi_map = aoi_gdf.to_crs(crs)
     projection = _projection(crs) if ax is None else ax.projection
     point_gdf = _as_gdf(points, "points").to_crs(crs) if points is not None else None
 
-    bx0, by0, bx1, by1 = aoi_map.total_bounds
-    margin = 0.03 * max(bx1 - bx0, by1 - by0)
-    extent = (bx0 - margin, bx1 + margin, by0 - margin, by1 + margin)
+    extent = _extent_from(aoi_map)
     ratio = (extent[3] - extent[2]) / (extent[1] - extent[0])
 
     preset = get_journal(journal or _STATE["journal"])
@@ -862,29 +1035,40 @@ def study_area_map(
         if has_inset
         else 1.0
     )
+    spec = None
+    if north_arrow or scale_bar:
+        metres_per_unit, _ = _ground_scale(projection, extent)
+        spec = _FurnitureSpec(north_arrow, scale_bar, metres_per_unit, extent[1] - extent[0])
+    parts = _Parts(legend_mm, has_inset, inset_ratio, spec, aoi_map, point_gdf, labels, extent)
 
+    holder = None
     if ax is not None:
         fig = ax.figure
         lay = None
     else:
-        lay = _choose_layout(
-            layout, width, height_mm, preset, ratio, small, size, dem is not None,
-            legend_mm, has_inset, inset_ratio, aoi_map, point_gdf, labels,
-        )  # fmt: skip
-        fig, ax = _make_axes(lay, preset, projection, width)
+        if subfigure is not None:
+            holder = subfigure
+            width, height_mm = _size_mm(subfigure)
+        lay = _choose_layout(layout, width, height_mm, preset, ratio, small, size,
+                             dem is not None, parts)  # fmt: skip
+        fig, ax = _make_axes(lay, preset, projection, holder)
+    holder = holder if holder is not None else ax.figure
     ax.set_extent(extent, crs=projection)
     ax.set_facecolor("white")
     ax.spines["geo"].set_linewidth(0.6)
     ax.spines["geo"].set_edgecolor(TEXT_COLOUR)
 
-    pos = ax.get_position()
-    fig_w_mm, fig_h_mm = (v * MM_PER_INCH for v in fig.get_size_inches())
-    map_w, map_h = pos.width * fig_w_mm, pos.height * fig_h_mm
+    if lay is not None:
+        map_w, map_h = lay.map_box[2:]
+    else:
+        pos = ax.get_position()
+        box_w, box_h = _size_mm(holder)
+        map_w, map_h = pos.width * box_w, pos.height * box_h
     dpi = preset.export_dpi
 
     tint = None
     if dem is not None:
-        tint = _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection)
+        tint = _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection, overlay is not None)
     if overlay is not None:
         _draw_overlay(ax, overlay, crs, extent, map_w, map_h, dpi, projection,
                       overlay_threshold, overlay_colour)  # fmt: skip
@@ -896,11 +1080,16 @@ def study_area_map(
         _add_graticule(ax, projection, extent, small)
 
     record: dict[str, Any] = {"layout": lay.mode if lay else "inside", "crs": crs.to_string()}
-    items = lay.items if lay else _inside_items(
-        aoi_map, point_gdf, labels, extent, map_w, map_h, legend_mm, has_inset, inset_ratio,
-        size, north_arrow or scale_bar,
-    )  # fmt: skip
+    if lay is not None:
+        items, furniture = lay.items, lay.furniture
+    else:
+        items, furniture = _inside_items(parts, map_w, map_h, size)
     record["items"] = {k: v[0] for k, v in items.items()}
+    if lay is not None and lay.legend_anchor is not None:
+        record["items"]["legend"] = "below"
+    if furniture is not None and furniture[1] is not None:
+        km = furniture[1]
+        record["scale_bar_km"] = int(km) if float(km).is_integer() else km
 
     if point_gdf is not None:
         xy = np.column_stack([point_gdf.geometry.x, point_gdf.geometry.y])
@@ -920,15 +1109,39 @@ def study_area_map(
             record["labels_clear"] = all(ok for _, ok in placed)
 
     if north_arrow or scale_bar:
-        _draw_furniture(ax, items.get("furniture"), map_w, map_h, north_arrow, scale_bar)
+        _draw_furniture(ax, items.get("furniture"), furniture, map_w, map_h, north_arrow,
+                        scale_bar)  # fmt: skip
     if has_inset:
-        _draw_inset(fig, ax, lay, items.get("inset"), aoi_gdf, inset, worldview, map_w, map_h)
+        _draw_inset(holder, ax, lay, items.get("inset"), aoi_gdf, inset, worldview)
     if legend and handles:
-        _draw_legend(fig, ax, lay, items.get("legend"), handles, small, map_w, map_h)
+        _draw_legend(holder, ax, lay, items.get("legend"), handles, small, map_w, map_h)
     if tint is not None:
-        _draw_colourbar(fig, ax, lay, tint)
+        _draw_colourbar(holder, ax, lay, tint)
     fig.eofigs_layout = record
+    if holder is not fig:
+        holder.eofigs_layout = record
     return fig
+
+
+@dataclass
+class _Parts:
+    """The map elements that need a place, and what they must keep clear of."""
+
+    legend_mm: tuple[float, float] | None
+    has_inset: bool
+    inset_ratio: float
+    furniture: _FurnitureSpec | None
+    aoi_map: Any
+    point_gdf: Any
+    labels: str | None
+    extent: tuple[float, float, float, float]
+
+
+def _size_mm(holder) -> tuple[float, float]:
+    """Width and height in mm of a figure or subfigure."""
+    bbox = holder.bbox
+    dpi = holder.get_figure(root=True).dpi if hasattr(holder, "get_figure") else holder.dpi
+    return bbox.width / dpi * MM_PER_INCH, bbox.height / dpi * MM_PER_INCH
 
 
 def _crs_of(ax):
@@ -964,78 +1177,117 @@ def _legend_size(handles, size: float) -> tuple[float, float]:
     return bbox.width / probe.dpi * MM_PER_INCH, bbox.height / probe.dpi * MM_PER_INCH
 
 
-def _furniture_size(map_w: float, size: float) -> tuple[float, float]:
-    arrow_h = 7.0 + size * _PT + 1
-    bar_h = size * _PT + 4
-    return max(0.3 * map_w, 12.0), arrow_h + bar_h + 1.5
+def _occupied(parts: _Parts, map_w, map_h, size):
+    """Occupied areas in mm map coordinates.
 
-
-def _occupied(aoi_map, point_gdf, labels, extent, map_w, map_h, size):
-    """AOI, points and rough label areas in mm map coordinates."""
+    Returns ``(occupied, clear)``: ``occupied`` is the study area (filled) with points and
+    labels, used to measure how empty a position is; ``clear`` is what items must not
+    touch at all: the outline widened by :data:`CLEARANCE_MM`, the points and the labels.
+    """
     from shapely.affinity import affine_transform
     from shapely.geometry import box as make_box
     from shapely.ops import unary_union
 
-    x0, x1, y0, y1 = extent
+    x0, x1, y0, y1 = parts.extent
     sx, sy = map_w / (x1 - x0), map_h / (y1 - y0)
     matrix = [sx, 0, 0, sy, -x0 * sx, -y0 * sy]
-    shapes = [affine_transform(g, matrix).buffer(1.0) for g in aoi_map.geometry]
-    if point_gdf is not None:
-        for _, row in point_gdf.iterrows():
+    areas = [affine_transform(g, matrix) for g in parts.aoi_map.geometry]
+    clear = [a.boundary.buffer(CLEARANCE_MM) for a in areas]
+    gdf, labels = parts.point_gdf, parts.labels
+    if gdf is not None:
+        for _, row in gdf.iterrows():
             px, py = affine_transform(row.geometry, matrix).coords[0]
-            name = str(row[labels]) if labels and labels in point_gdf.columns else ""
-            tw, th = _text_mm(name, size, "bold") if name else (0.0, 0.0)
-            shapes.append(make_box(px - tw - 3, py - th, px + tw + 3, py + th))
-    return unary_union(shapes)
+            clear.append(make_box(px - 1.5, py - 1.5, px + 1.5, py + 1.5))
+            name = str(row[labels]) if labels and labels in gdf.columns else ""
+            if name:
+                tw, th = _text_mm(name, size, "bold")
+                clear.append(make_box(px - tw - 3, py - th - 1, px + tw + 3, py + th + 1))
+    clear_shape = unary_union(clear)
+    occupied = unary_union([a.buffer(1.0) for a in areas] + [clear_shape])
+    return occupied, clear_shape
 
 
-def _inside_items(aoi_map, point_gdf, labels, extent, map_w, map_h, legend_mm, has_inset,
-                  inset_ratio, size, furniture):  # fmt: skip
-    occupied = _occupied(aoi_map, point_gdf, labels, extent, map_w, map_h, size)
+def _inside_items(parts: _Parts, map_w, map_h, size, legend_inside=True):
+    """Inset, legend and furniture positions inside the map, and the furniture choice."""
+    occupied, clear = _occupied(parts, map_w, map_h, size)
     sizes: dict[str, tuple[float, float]] = {}
-    if has_inset:
+    if parts.has_inset:
         w = min(max(20.0, map_w / 3), 45.0)
-        h = w * inset_ratio
+        h = w * parts.inset_ratio
         if h > 0.4 * map_h:
             h = 0.4 * map_h
-            w = h / inset_ratio
+            w = h / parts.inset_ratio
         sizes["inset"] = (w, h)
-    if legend_mm is not None:
-        sizes["legend"] = legend_mm
-    if furniture:
-        sizes["furniture"] = _furniture_size(map_w, size)
-    return place_items(sizes, occupied, map_w, map_h)
+    if parts.legend_mm is not None and legend_inside:
+        sizes["legend"] = parts.legend_mm
+    items = place_items(sizes, occupied, map_w, map_h, clear=clear)
+    variants = _furniture_variants(parts.furniture, map_w, map_h)
+    taken = [b for _, b, _ in items.values()]
+    found = _place_furniture(variants, occupied, clear, map_w, map_h, taken)
+    furniture = None
+    if found is not None:
+        items["furniture"], furniture = found
+    elif variants:
+        furniture = variants[-1][:2]
+    return items, furniture
 
 
-def _choose_layout(layout, width, height_mm, preset, ratio, small, size, has_dem, legend_mm,
-                   has_inset, inset_ratio, aoi_map, point_gdf, labels):  # fmt: skip
+def _fits(items, name) -> bool:
+    return name in items and items[name][2] >= MIN_EMPTY
+
+
+def _choose_layout(layout, width, height_mm, preset, ratio, small, size, has_dem, parts):
     fig_w = resolve_width(width, preset)
-    max_h = height_mm if height_mm is not None else preset.max_height_mm
+    max_h = height_mm if height_mm is not None else HEIGHT_SHARE * preset.max_height_mm
     lat_w, _ = _text_mm("35°30′N", small)
     lab_h = small * _PT
-    left, right, top = lat_w + 3.0, 4.0, 2.0
+    left, right = lat_w + 3.0, 4.0
+    top = 2.0 if _STATE.get("labels") is None else size * _PT + 3.0  # room for a panel label
     bottom = lab_h + 4.0
     cbar_block = (2.5 + 2 * (small * _PT + 1.5) + 3.0) if has_dem else 0.0
-    extent_of = _extent_from(aoi_map)
 
-    def inside():
-        map_w = fig_w - left - right
-        map_h = map_w * ratio
-        total = top + map_h + bottom + cbar_block
-        if total > max_h:
-            map_h = max_h - top - bottom - cbar_block
-            map_w = map_h / ratio
-        fig_h = height_mm if height_mm is not None else top + map_h + bottom + cbar_block
+    def inside(legend_below: bool):
+        lw, lh = parts.legend_mm if legend_below else (0.0, 0.0)
+        arrangement = None
+        if legend_below:
+            arrangement = "beside" if has_dem else "alone"
+        for _ in range(2):
+            if arrangement == "beside":
+                block = max(cbar_block, lh + 3.0)
+            elif arrangement == "stacked":
+                block = cbar_block + lh + 3.0
+            elif arrangement == "alone":
+                block = lh + 3.0
+            else:
+                block = cbar_block
+            map_w = fig_w - left - right
+            map_h = map_w * ratio
+            if top + map_h + bottom + block > max_h:
+                map_h = max_h - top - bottom - block
+                map_w = map_h / ratio
+            if arrangement == "beside" and map_w - lw - 6.0 < 30.0:
+                arrangement = "stacked"
+                continue
+            break
+        fig_h = height_mm if height_mm is not None else top + map_h + bottom + block
         x = left + (fig_w - left - right - map_w) / 2
         y = fig_h - top - map_h
         lay = _Layout("inside", fig_w, fig_h, (x, y, map_w, map_h))
+        below = y - bottom - 1.0  # top of the block below the map
         if has_dem:
-            cb_w = 0.6 * map_w
-            lay.colourbar_box = (x + (map_w - cb_w) / 2, y - bottom - 2.5 - 1.0, cb_w, 2.5)
-        lay.items = _inside_items(
-            aoi_map, point_gdf, labels, extent_of, map_w, map_h, legend_mm, has_inset,
-            inset_ratio, size, True,
-        )  # fmt: skip
+            if arrangement == "beside":
+                cb_w = min(0.6 * map_w, map_w - lw - 6.0)
+                lay.colourbar_box = (x + map_w - cb_w, below - 2.5, cb_w, 2.5)
+            else:
+                cb_w = 0.6 * map_w
+                lay.colourbar_box = (x + (map_w - cb_w) / 2, below - 2.5, cb_w, 2.5)
+        if arrangement in ("beside", "alone"):
+            lay.legend_anchor = (x, below)
+        elif arrangement == "stacked":
+            lay.legend_anchor = (x + (map_w - lw) / 2, below - cbar_block)
+        lay.items, lay.furniture = _inside_items(
+            parts, map_w, map_h, size, legend_inside=not legend_below
+        )
         return lay
 
     def side():
@@ -1048,22 +1300,34 @@ def _choose_layout(layout, width, height_mm, preset, ratio, small, size, has_dem
         fig_h = height_mm if height_mm is not None else top + map_h + bottom
         y = fig_h - top - map_h
         lay = _Layout("side", fig_w, fig_h, (left, y, map_w, map_h))
-        lay.side_box = (left + map_w + right, y, fig_w - (left + map_w + right) - 1.0, map_h)
-        occupied = _occupied(aoi_map, point_gdf, labels, extent_of, map_w, map_h, size)
-        lay.items = place_items({"furniture": _furniture_size(map_w, size)}, occupied, map_w, map_h)
+        sx = left + map_w + right
+        lay.side_box = (sx, y, fig_w - sx - 1.0, map_h)
+        occupied, clear = _occupied(parts, map_w, map_h, size)
+        variants = _furniture_variants(parts.furniture, map_w, map_h)
+        found = _place_furniture(variants, occupied, clear, map_w, map_h, [])
+        if found is not None and found[0][2] >= MIN_EMPTY:
+            lay.items["furniture"], lay.furniture = found
+        elif variants:  # no empty place inside the map: in the side column, above the bar
+            fitting = [v for v in variants if v[2][0] <= lay.side_box[2]] or variants[-1:]
+            arrangement, km, (w, h) = fitting[0]
+            base = (9.0 + 2.5 + 4.0) if has_dem else 2.0
+            box = (sx - left, base, sx - left + w, base + h)
+            lay.items["furniture"], lay.furniture = ("side column", box, 1.0), (arrangement, km)
         return lay
 
     if layout == "side":
         return side()
     if layout == "auto" and ratio > 1.25 and fig_w >= 120:
         return side()
-    lay = inside()
-    crowded = [
-        name for name in ("inset", "legend")
-        if name in lay.items and lay.items[name][2] < MIN_EMPTY
-    ]  # fmt: skip
-    if crowded or (has_inset and "inset" not in lay.items):
+    lay = inside(legend_below=False)
+    if parts.has_inset and not _fits(lay.items, "inset"):
         return side()
+    if parts.legend_mm is not None and not _fits(lay.items, "legend"):
+        if layout == "auto" and fig_w >= 120:
+            return side()
+        lay = inside(legend_below=True)
+        if parts.has_inset and not _fits(lay.items, "inset"):
+            return side()
     return lay
 
 
@@ -1073,20 +1337,25 @@ def _extent_from(aoi_map):
     return (bx0 - margin, bx1 + margin, by0 - margin, by1 + margin)
 
 
-def _make_axes(lay: _Layout, preset, projection, width):
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", UserWarning)
-        fig, ax0 = new_figure(lay.fig_w, height_mm=lay.fig_h, journal=preset.key)
-    fig.set_layout_engine("none")
-    ax0.remove()
+def _make_axes(lay: _Layout, preset, projection, holder=None):
     x, y, w, h = lay.map_box
     rect = (x / lay.fig_w, y / lay.fig_h, w / lay.fig_w, h / lay.fig_h)
-    ax = fig.add_axes(rect, projection=projection)
+    if holder is not None:
+        ax = holder.add_axes(rect, projection=projection)
+        fig = holder.get_figure(root=True)
+        holder._eofigs_layout = lay
+    else:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", UserWarning)
+            fig, ax0 = new_figure(lay.fig_w, height_mm=lay.fig_h, journal=preset.key)
+        fig.set_layout_engine("none")
+        ax0.remove()
+        ax = fig.add_axes(rect, projection=projection)
     fig._eofigs_layout = lay
     return fig, ax
 
 
-def _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection):
+def _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection, light=False):
     from eofigs.variables import variable
 
     z, img_extent, data = _prepare_raster(dem, crs, extent, map_w, map_h, dpi, "continuous")
@@ -1098,9 +1367,10 @@ def _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection):
         transform=projection, origin="upper", zorder=1, interpolation="nearest",
     )  # fmt: skip
     elevation = variable("elevation")
+    cmap = relief_cmap() if light else elevation.cmap
     low, high = np.nanpercentile(z, [1, 99])
     tint = ax.imshow(
-        np.ma.masked_invalid(z), cmap=elevation.cmap, vmin=low, vmax=high, alpha=ELEVATION_ALPHA,
+        np.ma.masked_invalid(z), cmap=cmap, vmin=low, vmax=high, alpha=ELEVATION_ALPHA,
         extent=img_extent, transform=projection, origin="upper", zorder=2,
         interpolation="nearest",
     )  # fmt: skip
@@ -1139,23 +1409,31 @@ def _item_pixels(ax, items, map_w, map_h):
     return unary_union(shapes) if shapes else make_box(0, 0, 0, 0)
 
 
-def _draw_furniture(ax, item, map_w, map_h, arrow, bar):
-    if item is None:
+def _draw_furniture(ax, item, choice, map_w, map_h, arrow, bar):
+    if item is None or choice is None:
         if arrow:
             add_north_arrow(ax)
         if bar:
             add_scale_bar(ax)
         return
     loc, box, _ = item
+    arrangement, km = choice
     anchor = _axes_fraction(box, map_w, map_h)
-    side = "left" if "left" in loc else "right" if "right" in loc else "center"
-    if arrow:
-        add_north_arrow(ax, loc=f"upper {side}", bbox_to_anchor=anchor)
+    fx = _POSITIONS.get(loc, (0.0, 0.0))[0]
+    side = "left" if fx == 0 else "right" if fx == 1 else "center"
+    bar_loc, arrow_loc = f"lower {side}", f"upper {side}"
+    if arrangement == "beside":
+        bar_loc, arrow_loc = "lower left", "lower right"
     if bar:
-        add_scale_bar(ax, loc=f"lower {side}", bbox_to_anchor=anchor)
+        metres_per_unit, _ = _metres_per_unit(ax)
+        artist = _bar_artist(metres_per_unit, km, bar_loc, anchor, ax.transAxes, border_pad=0)
+        ax.add_artist(artist)
+    if arrow:
+        artist = _arrow_box(north_angle(ax), arrow_loc, anchor, ax.transAxes, borderpad=0)
+        ax.add_artist(artist)
 
 
-def _draw_inset(fig, ax, lay, item, aoi, inset, worldview, map_w, map_h):
+def _draw_inset(holder, ax, lay, item, aoi, inset, worldview):
     countries = None if isinstance(inset, str) else inset
     if lay is not None and lay.mode == "side":
         x, y, w, h = lay.side_box
@@ -1168,49 +1446,58 @@ def _draw_inset(fig, ax, lay, item, aoi, inset, worldview, map_w, map_h):
         return add_inset(ax, aoi, rect=rect, worldview=worldview, countries=countries)
     if item is None:
         return add_inset(ax, aoi, worldview=worldview, countries=countries)
-    loc, box, _ = item
-    pos = ax.get_position()
-    fig_w, fig_h = (v * MM_PER_INCH for v in fig.get_size_inches())
-    x0, y0, x1, y1 = box
-    rect = (pos.x0 + x0 / fig_w, pos.y0 + y0 / fig_h, (x1 - x0) / fig_w, (y1 - y0) / fig_h)
+    _, (x0, y0, x1, y1), _ = item
+    if lay is None:
+        pos = ax.get_position()
+        fig_w, fig_h = _size_mm(holder)
+        rect = (pos.x0 + x0 / fig_w, pos.y0 + y0 / fig_h, (x1 - x0) / fig_w, (y1 - y0) / fig_h)
+    else:
+        mx, my = lay.map_box[:2]
+        rect = (
+            (mx + x0) / lay.fig_w, (my + y0) / lay.fig_h,
+            (x1 - x0) / lay.fig_w, (y1 - y0) / lay.fig_h,
+        )  # fmt: skip
     return add_inset(ax, aoi, rect=rect, worldview=worldview, countries=countries)
 
 
-def _draw_legend(fig, ax, lay, item, handles, size, map_w, map_h):
+def _draw_legend(holder, ax, lay, item, handles, size, map_w, map_h):
     props = {"size": size, "weight": "bold"}
+    anchor = None
     if lay is not None and lay.mode == "side":
         x, y, w, h = lay.side_box
-        top = getattr(lay, "inset_bottom", y + h) - 3.0
-        leg = fig.legend(
-            handles=handles, loc="upper left", bbox_to_anchor=(x / lay.fig_w, top / lay.fig_h),
-            bbox_transform=fig.transFigure, prop=props, frameon=False, borderpad=0.0,
+        anchor = (x, getattr(lay, "inset_bottom", y + h) - 3.0)
+    elif lay is not None and lay.legend_anchor is not None:
+        anchor = lay.legend_anchor
+    if anchor is not None:
+        return holder.legend(
+            handles=handles, loc="upper left",
+            bbox_to_anchor=(anchor[0] / lay.fig_w, anchor[1] / lay.fig_h),
+            bbox_transform=holder.transSubfigure, prop=props, frameon=False, borderpad=0.0,
             borderaxespad=0.0, handlelength=1.6,
         )  # fmt: skip
-        return leg
     loc, box, _ = item if item is not None else ("lower left", None, 1.0)
-    anchor = _axes_fraction(box, map_w, map_h) if box is not None else None
+    bbox = _axes_fraction(box, map_w, map_h) if box is not None else None
     leg = ax.legend(
-        handles=handles, loc=loc, bbox_to_anchor=anchor, prop=props, frameon=True,
-        framealpha=0.85, facecolor="white", edgecolor="none", borderpad=0.4,
-        borderaxespad=0.0, handlelength=1.6,
+        handles=handles, loc="upper left" if bbox is not None else loc, bbox_to_anchor=bbox,
+        prop=props, frameon=True, framealpha=0.85, facecolor="white", edgecolor="none",
+        borderpad=0.4, borderaxespad=0.0, handlelength=1.6,
     )  # fmt: skip
     leg.set_zorder(8)
     return leg
 
 
-def _draw_colourbar(fig, ax, lay, tint):
+def _draw_colourbar(holder, ax, lay, tint):
     small = _small_font()
     if lay is None:
-        bar = fig.colorbar(tint, ax=ax, orientation="horizontal", shrink=0.6, pad=0.08)
-    elif lay.mode == "side":
-        x, y, w, h = lay.side_box
-        cb_w = 0.8 * w
-        rect = (x / lay.fig_w, (y + 9.0) / lay.fig_h, cb_w / lay.fig_w, 2.5 / lay.fig_h)
-        bar = fig.colorbar(tint, cax=fig.add_axes(rect), orientation="horizontal")
+        bar = holder.colorbar(tint, ax=ax, orientation="horizontal", shrink=0.6, pad=0.08)
     else:
-        x, y, w, h = lay.colourbar_box
-        rect = (x / lay.fig_w, y / lay.fig_h, w / lay.fig_w, h / lay.fig_h)
-        bar = fig.colorbar(tint, cax=fig.add_axes(rect), orientation="horizontal")
+        if lay.mode == "side":
+            x, y, w, h = lay.side_box
+            rect = (x / lay.fig_w, (y + 9.0) / lay.fig_h, 0.8 * w / lay.fig_w, 2.5 / lay.fig_h)
+        else:
+            x, y, w, h = lay.colourbar_box
+            rect = (x / lay.fig_w, y / lay.fig_h, w / lay.fig_w, h / lay.fig_h)
+        bar = holder.colorbar(tint, cax=holder.add_axes(rect), orientation="horizontal")
     bar.set_label(getattr(tint, "eofigs_label", ""), size=mpl.rcParams["font.size"])
     bar.ax.tick_params(labelsize=small, width=0.6, length=2.5)
     bar.outline.set_linewidth(0.6)

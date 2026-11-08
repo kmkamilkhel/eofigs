@@ -523,6 +523,8 @@ def _cmap_result(fig: Figure) -> CheckResult:
 
 def _tick_count(axis) -> int:
     """Count the non-empty major tick labels shown inside the view interval."""
+    if not axis.get_visible():  # for example map axes, labelled by their graticule
+        return 0
     params = axis.get_tick_params(which="major")
     sides = ("labelbottom", "labeltop") if axis.axis_name == "x" else ("labelleft", "labelright")
     if not any(params.get(side, side in ("labelbottom", "labelleft")) for side in sides):

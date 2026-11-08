@@ -13,6 +13,7 @@ import pytest
 import rioxarray  # noqa: F401
 import xarray as xr
 from matplotlib.colors import ListedColormap
+from shapely.affinity import scale
 from shapely.geometry import Point, Polygon, box
 
 import eofigs
@@ -450,6 +451,156 @@ def test_swat_layout(width, arial_style):
     report = eofigs.check_figure(fig)
     assert report.passed, str(report)
     assert [r.name for r in report.warnings] == [], str(report)
+
+
+def _mm(fig, bbox):
+    return box(*(np.array([bbox.x0, bbox.y0, bbox.x1, bbox.y1]) / fig.dpi * 25.4))
+
+
+def _furniture_boxes(fig):
+    """North arrow and scale bar extents in mm (after drawing)."""
+    from matplotlib.offsetbox import AnchoredOffsetbox
+    from matplotlib_scalebar.scalebar import ScaleBar
+
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+    ax = fig.axes[0]
+    arrow = [a for a in ax.artists if isinstance(a, AnchoredOffsetbox)]
+    bar = [a for a in ax.artists if isinstance(a, ScaleBar)]
+    return _mm(fig, arrow[0].get_window_extent(renderer)), _mm(fig, bar[0].info.window_extent)
+
+
+@pytest.mark.skipif(not SWAT.exists(), reason="Swat sample data are in the repository only")
+def test_swat_single_column_items_clear_the_outline(arial_style):
+    fig = eofigs.study_area_map(
+        SWAT / "swat_boundary.geojson",
+        dem=SWAT / "swat_dem_90m.tif",
+        points=SWAT / "swat_towns.geojson",
+        aoi_label="Swat valley\n(pre-2026 district boundary)",
+        points_label="Town",
+        width="single",
+    )
+    arrow, bar = _furniture_boxes(fig)
+    ax = fig.axes[0]
+    renderer = fig.canvas.get_renderer()
+    outline_px = maps._outline_pixels(ax, gpd.read_file(SWAT / "swat_boundary.geojson")
+                                      .to_crs(UTM).geometry, 0.5)  # fmt: skip
+    outline = scale(outline_px, 25.4 / fig.dpi, 25.4 / fig.dpi, origin=(0, 0))
+    inset = [a for a in fig.axes if hasattr(a, "focus")][0]
+    items = {"north arrow": arrow, "scale bar": bar,
+             "inset": _mm(fig, inset.get_window_extent(renderer))}  # fmt: skip
+    legend = ax.get_legend()
+    if legend is not None:
+        items["legend"] = _mm(fig, legend.get_window_extent(renderer))
+    for name, shape in items.items():
+        assert shape.distance(outline) >= 1.0, name  # at least 1 mm from the outline line
+    labels = [t for t in ax.texts if t.get_text() in ("Mingora", "Matta", "Kalam")]
+    for t in labels:
+        label = _mm(fig, t.get_window_extent(renderer))
+        assert not any(label.intersects(s) for s in items.values()), t.get_text()
+
+
+def test_north_arrow_and_scale_bar_keep_a_gap(custom_style):
+    for kwargs in ({"width": "onehalf", "journal": "elsevier"}, {"width": "single"}):
+        fig = eofigs.study_area_map(_tall_aoi(), dem=_dem(), **kwargs)
+        arrow, bar = _furniture_boxes(fig)
+        assert arrow.distance(bar) >= 1.5, kwargs
+
+
+def test_furniture_beside_and_bar_only_and_arrow_only(custom_style):
+    spec = maps._FurnitureSpec(True, True, 1.0, 60_000.0)
+    variants = maps._furniture_variants(spec, 80.0, 150.0)
+    assert [v[0] for v in variants[:2]] == ["stacked", "beside"]
+    (_, km, (sw, sh)), (_, _, (bw, bh)) = variants[:2]
+    assert km == 10 and bw > sw and sh > bh
+    assert {
+        v[0] for v in maps._furniture_variants(maps._FurnitureSpec(False, True, 1.0, 6e4), 80, 150)
+    } == {"bar"}
+    only_arrow = maps._furniture_variants(maps._FurnitureSpec(True, False, 1.0, 6e4), 80, 150)
+    assert [v[0] for v in only_arrow] == ["arrow"]
+    assert maps._furniture_variants(None, 80, 150) == []
+    fig = eofigs.study_area_map(_tall_aoi(), inset=None, legend=False, scale_bar=False)
+    assert "furniture" in fig.eofigs_layout["items"] and "scale_bar_km" not in fig.eofigs_layout
+
+
+@pytest.mark.parametrize(
+    ("width_km", "expected"), [(71, [20, 10]), (60, [10, 5]), (500, [100, 50])]
+)
+def test_bar_lengths(width_km, expected):
+    assert maps._bar_lengths(width_km) == expected
+
+
+def test_full_aoi_puts_furniture_in_the_side_column(custom_style):
+    fig = eofigs.study_area_map(_full_aoi(), dem=_dem(), width="single")
+    assert fig.eofigs_layout["items"]["furniture"] == "side column"
+    arrow, bar = _furniture_boxes(fig)
+    map_right = fig.axes[0].get_window_extent().x1 / fig.dpi * 25.4
+    assert bar.bounds[0] > map_right and arrow.bounds[0] > map_right
+
+
+def test_legend_goes_below_when_the_map_has_no_room(custom_style):
+    fig = eofigs.study_area_map(
+        _full_aoi(), dem=_dem(), points=_towns(), inset=None, width="single", layout="inside"
+    )
+    assert fig.eofigs_layout["items"]["legend"] == "below"
+    assert fig.legends and fig.axes[0].get_legend() is None
+    legend = fig.legends[0].get_window_extent(fig.canvas.get_renderer())
+    assert legend.y1 < fig.axes[0].get_window_extent().y0  # below the map
+
+
+def test_legend_below_without_a_dem(custom_style):
+    fig = eofigs.study_area_map(_full_aoi(), inset=None, width="single", layout="inside")
+    assert fig.eofigs_layout["items"]["legend"] == "below"
+
+
+def test_default_height_is_three_quarters_of_the_maximum(custom_style):
+    fig = eofigs.study_area_map(_tall_aoi(), dem=_dem(), points=_towns(), width="single")
+    assert fig.get_size_inches()[1] * 25.4 <= 0.75 * 240 + 0.5
+    fig = eofigs.study_area_map(_tall_aoi(), width="single", height_mm=230, layout="inside")
+    assert fig.get_size_inches()[1] * 25.4 == pytest.approx(230)
+
+
+def test_relief_colours_under_an_overlay(custom_style):
+    dem = _dem()
+    plain = eofigs.study_area_map(_tall_aoi(), dem=dem, inset=None, legend=False)
+    with_overlay = eofigs.study_area_map(
+        _tall_aoi(), dem=dem, overlay=_cover(dem), inset=None, legend=False
+    )
+    names = [[im.get_cmap().name for im in f.axes[0].get_images()] for f in (plain, with_overlay)]
+    assert "cmc.batlow" in names[0] and "lapaz_light" in names[1]
+    overlay = [im for im in with_overlay.axes[0].get_images() if im.get_cmap().N == 1][0]
+    assert overlay.get_alpha() == maps.OVERLAY_ALPHA == 0.75
+    diff = overlay_contrast(maps.OVERLAY_COLOUR, 0.75, maps.relief_cmap(), maps.ELEVATION_ALPHA)
+    assert diff["normal"] >= 20 and min(diff.values()) >= 12
+
+
+def test_colour_bar_has_four_or_five_round_ticks(custom_style):
+    fig = eofigs.study_area_map(_tall_aoi(), dem=_dem(), inset=None, legend=False)
+    cbar_ax = fig.axes[-1]
+    lo, hi = cbar_ax.get_xlim()
+    ticks = [t for t in cbar_ax.get_xticks() if lo <= t <= hi]
+    assert 4 <= len(ticks) <= 5
+    assert all(t % 500 == 0 for t in ticks)
+
+
+def test_map_in_a_subfigure(custom_style):
+    fig, ax0 = eofigs.new_figure("double", height_mm=150, layout="none")
+    ax0.remove()
+    left, right = fig.subfigures(1, 2)
+    out = eofigs.study_area_map(_tall_aoi(), dem=_dem(), points=_towns(), subfigure=left)
+    assert out is fig and left.eofigs_layout is fig.eofigs_layout
+    map_ax = left.axes[0]
+    assert map_ax.get_window_extent().x1 <= left.bbox.x1 + 1  # inside the left half
+    assert all(a.get_window_extent().x1 <= left.bbox.x1 + 1 for a in left.axes)
+    with pytest.raises(ValueError, match="either ax or subfigure"):
+        eofigs.study_area_map(_tall_aoi(), ax=map_ax, subfigure=right)
+
+
+def test_house_style_ticks_pass_on_a_map(sans_font):
+    with eofigs.style("custom", font=sans_font, max_ticks=5):
+        fig = eofigs.study_area_map(_tall_aoi(), dem=_dem(), inset=None)
+        ticks = [r for r in eofigs.check_figure(fig).results if r.name == "ticks"][0]
+    assert ticks.status == "pass", ticks.message
 
 
 # ----------------------------------------------------------------------------- worldviews
