@@ -6,6 +6,11 @@ uses [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- The Zenodo DOI is in CITATION.cff, the README and a "How to cite" section of the
+  documentation; the installation page installs from PyPI.
+
 ## [0.1.0] - 2026-11-08
 
 First release: journal styles and one-call export, the figure check, figure sets, the

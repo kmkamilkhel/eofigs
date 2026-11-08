@@ -3,6 +3,8 @@
 [![Tests](https://github.com/kmkamilkhel/eofigs/actions/workflows/tests.yml/badge.svg)](https://github.com/kmkamilkhel/eofigs/actions/workflows/tests.yml)
 [![Docs](https://github.com/kmkamilkhel/eofigs/actions/workflows/docs.yml/badge.svg)](https://kmkamilkhel.github.io/eofigs/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/eofigs.svg)](https://pypi.org/project/eofigs/)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24053760.svg)](https://doi.org/10.5281/zenodo.24053760)
 
 Analysis-aware, publication-ready figures for Earth observation research.
 
@@ -128,7 +130,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT
 
 ## Citation
 
-If you use eofigs, please cite it using the metadata in [CITATION.cff](CITATION.cff).
+If you use eofigs, please cite it. The software is archived on Zenodo:
+[doi:10.5281/zenodo.24053760](https://doi.org/10.5281/zenodo.24053760) covers all versions, and each release
+has its own DOI (v0.1.0: [doi:10.5281/zenodo.24053761](https://doi.org/10.5281/zenodo.24053761)). The metadata are in
+[CITATION.cff](CITATION.cff); the
+[citation page](https://kmkamilkhel.github.io/eofigs/citation/) has APA and BibTeX entries.
 
 ## License
 
