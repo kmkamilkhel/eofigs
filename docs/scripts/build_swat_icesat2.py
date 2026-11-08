@@ -12,13 +12,19 @@ written to the outputs or the log.
    box, so a few megabytes per granule are downloaded (the full granules total about 26 GB).
    Harmony cannot also select variables for this collection, which has no variable records
    in NASA's catalogue.
-2. **Segments kept** (100 m land segments):
+2. **Segments kept** (100 m land segments). The rule does not depend on slope, so steep
+   terrain stays in the sample (``h_te_uncertainty`` is not used: it grows with the slope
+   within a segment, and a limit on it keeps mostly flat ground):
    - strong beams only (from the beam's ``atlas_beam_type``, else the spacecraft
      orientation);
    - a valid best-fit terrain height (``h_te_best_fit``);
-   - terrain height uncertainty (``h_te_uncertainty``) of at most 5 m;
    - snow-free land (``segment_snowcover`` = 1);
-   - segment centre inside the Swat outline, with valid DEM values around it.
+   - no cloud or blowing-snow layer in the atmosphere (multiple-scattering warning
+     ``msw_flag`` = 0);
+   - at least 10 terrain photons in the segment (``n_te_photons``);
+   - segment centre inside the Swat outline, with valid DEM values around it;
+   - gross blunders, where DEM and ICESat-2 heights differ by more than 150 m, are dropped
+     and counted (none in the 2019-2024 data).
 3. **Vertical datum.** ATL08 heights are above the WGS 84 ellipsoid; the Copernicus DEM gives
    heights above the EGM2008 geoid. ATL08 heights are converted to EGM2008 orthometric heights
    with PROJ (WGS 84 to EGM2008 height, NGA's 2.5-minute EGM2008 grid ``us_nga_egm08_25``,
@@ -26,7 +32,9 @@ written to the outputs or the log.
    not a ballpark transformation.
 4. **DEM value** at each segment centre: bilinear interpolation of ``swat_dem_90m.tif``
    (Copernicus DEM GLO-90, EGM2008) and its slope (degrees, from the same grid).
-5. **Output** ``swat_icesat2_atl08_dem.csv``: one row per segment with the date, beam,
+5. **Random subsample** of 25 000 segments (seed 2019) so that the file stays under 2 MB;
+   every statistic shown in the gallery is computed from this stored sample.
+6. **Output** ``swat_icesat2_atl08_dem.csv``: one row per segment with the date, beam,
    longitude, latitude, ICESat-2 terrain height (EGM2008), geoid undulation, DEM elevation
    and DEM slope.
 
@@ -58,8 +66,12 @@ COLLECTION = "C3565574177-NSIDC_CPRD"  # ATL08 version 007, NSIDC cloud
 HARMONY = "https://harmony.earthdata.nasa.gov"
 START, END = "2019-01-01T00:00:00Z", "2024-12-31T23:59:59Z"
 BEAMS = ("gt1l", "gt1r", "gt2l", "gt2r", "gt3l", "gt3r")
-UNCERTAINTY_MAX_M = 5.0
 SNOW_FREE_LAND = 1
+NO_LAYERS = 0  # msw_flag: no cloud or blowing-snow layer detected
+MIN_TERRAIN_PHOTONS = 10
+BLUNDER_M = 150.0
+SAMPLE_SIZE = 25_000
+SEED = 2019
 FILL = 3.0e38
 
 
@@ -162,7 +174,7 @@ def strong_beams(f) -> list[str]:
 
 
 def read_segments(path: Path) -> list[dict]:
-    """Land segments of one granule that pass the beam, height, uncertainty and snow filters."""
+    """Land segments of one granule that pass the beam, height, snow, cloud and photon filters."""
     import h5py
 
     date = re.search(r"ATL08_(\d{4})(\d{2})(\d{2})", path.name)
@@ -175,8 +187,10 @@ def read_segments(path: Path) -> list[dict]:
             lat, lon = seg["latitude"][()], seg["longitude"][()]
             snow = seg["segment_snowcover"][()]
             h = seg["terrain/h_te_best_fit"][()].astype("float64")
-            unc = seg["terrain/h_te_uncertainty"][()].astype("float64")
-            ok = (np.abs(h) < FILL) & (unc <= UNCERTAINTY_MAX_M) & (snow == SNOW_FREE_LAND)
+            msw = seg["msw_flag"][()]
+            photons = seg["terrain/n_te_photons"][()]
+            ok = (np.abs(h) < FILL) & (snow == SNOW_FREE_LAND) & (msw == NO_LAYERS)
+            ok &= photons >= MIN_TERRAIN_PHOTONS
             day = f"{date[1]}-{date[2]}-{date[3]}"
             for i in np.flatnonzero(ok):
                 rows.append(
@@ -252,7 +266,7 @@ def main() -> None:
     rows = []
     for path in tqdm(sorted(paths), desc="read", unit="file"):
         rows += read_segments(path)
-    print(f"{len(rows)} segments pass the beam, height, uncertainty and snow filters")
+    print(f"{len(rows)} segments pass the beam, height, snow, cloud and photon filters")
     lon = np.array([r["lon"] for r in rows])
     lat = np.array([r["lat"] for r in rows])
     h = np.array([r["h"] for r in rows])
@@ -262,12 +276,19 @@ def main() -> None:
     dem, slope = sample_dem(lon, lat)
     keep = inside & np.isfinite(dem) & np.isfinite(slope)
     print(f"{int(keep.sum())} segments inside the outline with DEM values")
-
-    order = np.lexsort((lat[keep], np.array([r["date"] for r in rows])[keep]))
-    idx = np.flatnonzero(keep)[order]
+    blunder = keep & (np.abs(dem - height) > BLUNDER_M)
+    keep &= ~blunder
+    print(f"{int(blunder.sum())} blunders (|DEM - ICESat-2| > {BLUNDER_M:.0f} m) dropped; "
+          f"{int(keep.sum())} segments kept")  # fmt: skip
+    idx = np.flatnonzero(keep)
+    if idx.size > SAMPLE_SIZE:
+        idx = np.sort(np.random.default_rng(SEED).choice(idx, SAMPLE_SIZE, replace=False))
+        print(f"random subsample of {SAMPLE_SIZE} segments (seed {SEED})")
+    dates = np.array([r["date"] for r in rows])
+    idx = idx[np.lexsort((lat[idx], dates[idx]))]
     target = OUT / "swat_icesat2_atl08_dem.csv"
     with open(target, "w", newline="", encoding="utf-8") as fh:
-        w = csv.writer(fh)
+        w = csv.writer(fh, lineterminator="\n")
         w.writerow(["date", "beam", "longitude", "latitude", "icesat2_height_egm2008_m",
                     "geoid_undulation_m", "dem_elevation_m", "dem_slope_deg"])  # fmt: skip
         for i in idx:

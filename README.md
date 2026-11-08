@@ -94,7 +94,7 @@ Available in the development version: `set_style`, `style`, `new_figure`, `label
 | `study_area_map` | DEM hillshade, overlay, labelled points, locator inset, graticule, north arrow to true north, scale bar, legend; automatic layout |
 | `trend_map` | Trend map with zero-centred colours, significance dots, optional latitude profile |
 | `event_composite` | Before/during/after anomaly maps with a composite time series |
-| `accuracy_scatter` | Observed against predicted values with the 1:1 line, a fitted line (Piñeiro et al. 2008), R², RMSE and bias, density colours or groups |
+| `accuracy_scatter` | Observed against predicted values with the 1:1 line, a fitted line (Piñeiro et al. 2008), R², RMSE, NMAD and bias, density colours or groups |
 
 **v0.2**: burn severity, recovery and disturbance recipes, SHAP and partial dependence styling,
 confusion matrix, Google Earth Engine input through Xee at print scale.

@@ -88,8 +88,8 @@ precipitation 2001–2021, their z-scores per calendar month, and the hot-dry ev
 ICESat-2 terrain heights from ATLAS/ICESat-2 L3A Land and Vegetation Height, Version 7
 (NASA National Snow and Ice Data Center DAAC, doi:10.5067/ATLAS/ATL08.007). NSIDC states that
 these data are freely, openly and fully available to use without restrictions, provided
-the data are cited. Changed: filtered land segments over Swat, heights converted from the
-WGS 84 ellipsoid to EGM2008 heights. The DEM columns are interpolated from
+the data are cited. Changed: filtered land segments over Swat (a random subsample of
+25 000), heights converted from the WGS 84 ellipsoid to EGM2008 heights. The DEM columns are interpolated from
 `swat_dem_90m.tif`, so the Copernicus DEM notice above applies to them as well.
 
 ## References
@@ -102,6 +102,9 @@ WGS 84 ellipsoid to EGM2008 heights. The DEM columns are interpolated from
   NASA EOSDIS Land Processes Distributed Active Archive Center.
   https://doi.org/10.5067/MODIS/MOD13A1.061
 
+- Höhle, J., & Höhle, M. (2009). Accuracy assessment of digital elevation models by means of
+  robust statistical methods. *ISPRS Journal of Photogrammetry and Remote Sensing* 64:
+  398–406. https://doi.org/10.1016/j.isprsjprs.2009.02.003
 - NASA National Snow and Ice Data Center DAAC. ATLAS/ICESat-2 L3A Land and Vegetation
   Height, Version 7. https://doi.org/10.5067/ATLAS/ATL08.007
 - Piñeiro, G., Perelman, S., Guerschman, J. P., & Paruelo, J. M. (2008). How to evaluate

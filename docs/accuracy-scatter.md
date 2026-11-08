@@ -15,11 +15,13 @@ print(fig.eofigs_layout["caption"])  # definitions, fitted line, density rule
 
 ![ICESat-2 terrain heights against the Copernicus DEM in the Swat valley](gallery/images/accuracy_scatter_icesat2.png)
 
-ICESat-2 ATL08 terrain heights (2019–2024, strong beams, snow-free segments, terrain height
-uncertainty at most 5 m), converted from the WGS 84 ellipsoid to EGM2008 heights, against
-the Copernicus DEM GLO-90 at the segment centres in the Swat valley (pre-2026 district
-boundary): the former Swat district (before January 2026), now Swat and Bar Swat. Full code
-and downloads: [gallery](gallery/accuracy_scatter_icesat2.md).
+(a) Copernicus DEM GLO-90 elevation against ICESat-2 ATL08 terrain height at 25 000 randomly
+sampled land segments (2019–2024; strong beams, snow-free, cloud-free, at least 10 terrain
+photons), converted from the WGS 84 ellipsoid to EGM2008 heights, in the Swat valley
+(pre-2026 district boundary): the former Swat district (before January 2026), now Swat and
+Bar Swat. (b) DEM − ICESat-2 by DEM slope class: median, interquartile range and RMSE, with
+the number of segments per class. Full code and downloads:
+[gallery](gallery/accuracy_scatter_icesat2.md).
 
 ## Orientation and fitted line
 
@@ -48,6 +50,7 @@ With observed values *O*, predicted values *P*, their means *Ō* and *P̄*, and 
 | `nse` | NSE | Nash–Sutcliffe efficiency, 1 − Σ(*P* − *O*)² / Σ(*O* − *Ō*)² (it can be negative) |
 | `rmse` | RMSE | √(Σ(*P* − *O*)² / *n*) |
 | `rrmse` | rRMSE | 100 · RMSE / *Ō* (%) |
+| `nmad` | NMAD | 1.4826 · median(\|*e* − median(*e*)\|) with *e* = *P* − *O* (Höhle and Höhle 2009) |
 | `mae` | MAE | Σ\|*P* − *O*\| / *n* |
 | `bias` | Bias | Σ(*P* − *O*) / *n* (positive: overestimation) |
 | `rbias` | rBias | 100 · bias / *Ō* (%) |
@@ -58,6 +61,14 @@ R² is the squared correlation, as most remote sensing validation papers report 
 agreement with the 1:1 line is carried by the RMSE and the bias. The coefficient of
 determination against the 1:1 line is available as `nse`, so that a figure never shows a
 value called R² that can be negative.
+
+The NMAD (normalised median absolute deviation) is the robust spread of the errors that DEM
+validation usually reports next to the RMSE: for normally distributed errors it equals
+their standard deviation, and a few blunders barely change it, while they inflate the RMSE.
+
+Höhle, J., & Höhle, M. (2009). Accuracy assessment of digital elevation models by means of
+robust statistical methods. *ISPRS Journal of Photogrammetry and Remote Sensing*, 64(4),
+398–406. <https://doi.org/10.1016/j.isprsjprs.2009.02.003>
 
 Numbers in the box carry three significant digits, the statistics with units share one
 number of decimals, R², r, NSE and the slope get two decimals and the percentages one.
@@ -94,16 +105,28 @@ eofigs.accuracy_scatter(obs_val, pred_val, variable="agb", ax=axes[1], labels=["
 
 - ICESat-2 ATL08 version 7 land segments (100 m) from 2019 to 2024, cut to the Swat box on
   NASA's servers with Harmony (a free NASA Earthdata login is needed to run the script);
-- strong beams only, valid best-fit terrain heights, terrain height uncertainty at most
-  5 m, snow-free land, segment centres inside the Swat outline;
+- a quality rule that does not depend on slope: strong beams, valid best-fit terrain
+  heights, snow-free land (`segment_snowcover` = 1), no cloud or blowing-snow layer
+  (multiple-scattering warning `msw_flag` = 0), at least 10 terrain photons per segment, and
+  segment centres inside the Swat outline;
+- gross blunders (DEM and ICESat-2 more than 150 m apart) are dropped and counted: there
+  are none, so all 27 619 segments that pass the rule are kept;
+- a random subsample of 25 000 of them (seed 2019) is stored, to keep the file under 2 MB;
+  every statistic in the gallery figure is computed from this sample;
 - **vertical datum:** ATL08 heights are above the WGS 84 ellipsoid and the Copernicus DEM
   is referenced to the EGM2008 geoid; the ATL08 heights are converted to EGM2008 heights
   with PROJ and NGA's EGM2008 grid before the comparison (the geoid undulation over Swat is
   about −27 to −39 m, so skipping this step would add a bias of that size);
 - the DEM elevation and slope are interpolated bilinearly at each segment centre.
 
-The 2 124 segments that pass the 5 m uncertainty limit lie mostly on gentle slopes (median
-DEM slope 1°, against 26° over the whole valley), because the ATL08 terrain height
-uncertainty grows with the slope within a segment. On these segments the DEM and ICESat-2
-agree within a few metres (RMSE 4.2 m, bias +1.4 m); the differences grow with slope, from
-an RMSE of 2.7 m below 10° to 13.4 m between 10° and 20° (99 segments).
+The rule deliberately leaves out the ATL08 terrain height uncertainty (`h_te_uncertainty`):
+it grows with the slope within a segment, so a limit on it acts as a slope filter. A 5 m
+limit, for example, keeps 2 124 segments with a median DEM slope of 1° (against 26° over the
+whole valley) and an RMSE of 4.2 m, an optimistic picture of the DEM's accuracy in
+mountains. The stored sample keeps the steep terrain (median slope 20°).
+
+Over a 4 km elevation range, metre-level differences are invisible in a scatter: the
+points lie on the 1:1 line and R² rounds to 1.00, so panel (b) shows the errors themselves.
+In the sample the DEM is on average 4.3 m above ICESat-2 (RMSE 11.7 m, NMAD 7.6 m). The
+median difference grows from 1.1 m below 10° to 7.9 m above 40°, and the RMSE from 4.6 m
+to 20.9 m.

@@ -39,13 +39,16 @@ uses [Semantic Versioning](https://semver.org/).
 - `accuracy_scatter`: observed against predicted values (predicted on the x axis and the
   least-squares line of observed on predicted by default, after Piñeiro et al. 2008; or
   the reverse, or a reduced major axis line) with the 1:1 line, a statistics box (R² as the
-  squared Pearson correlation, RMSE, rRMSE, MAE, bias, rBias, NSE, slope, intercept, n)
+  squared Pearson correlation, RMSE, rRMSE, NMAD after Höhle and Höhle 2009, MAE, bias,
+  rBias, NSE, slope, intercept, n)
   with units from the variable library, square axes with shared ticks, groups in Okabe-Ito
   colours with distinct markers, density colours above 1 000 pairs (rasterised in vector
   files), `ax=` for multi-panel figures and a ready caption sentence.
-- Swat ICESat-2 ATL08 terrain heights 2019–2024, converted to EGM2008 heights and paired
-  with the Copernicus DEM (built by `docs/scripts/build_swat_icesat2.py`); gallery entries
-  for the ICESat-2 comparison and for synthetic calibration and validation plots.
+- Swat ICESat-2 ATL08 terrain heights 2019–2024 (a slope-independent quality rule and a
+  random sample of 25 000 segments), converted to EGM2008 heights and paired with the
+  Copernicus DEM (built by `docs/scripts/build_swat_icesat2.py`); gallery entries for the
+  ICESat-2 comparison, with the DEM error by slope class, and for synthetic calibration and
+  validation plots.
 - Swat hot-dry events 2001–2021 from TerraClimate (built by `docs/scripts/build_swat_events.py`)
   and a monthly 1 km NDVI series from MODIS MOD13A1 in `docs/data/swat/`; gallery entries
   for the Swat event composite and a synthetic composite with eight events.
