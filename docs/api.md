@@ -48,6 +48,10 @@
 
 ::: eofigs.trend_map
 
+## Event composites
+
+::: eofigs.event_composite
+
 ## Figure sets
 
 ::: eofigs.figure_set

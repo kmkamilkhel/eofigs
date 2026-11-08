@@ -38,6 +38,11 @@ journal-ready figures that know the analysis, the variable and the printed size:
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_profile_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_profile_swat.png" alt="Trend map with latitude profile"></a><br><b>Trend map with latitude profile</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/palettes/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/palettes.png" alt="Built-in palettes"></a><br><b>Built-in palettes</b></td>
 </tr>
+<tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite: Swat hot-dry months</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_synthetic.png" alt="Event composite with significance"></a><br><b>Event composite with significance</b></td>
+<td width="33%"></td>
+</tr>
 </table>
 
 More in the [gallery](https://kmkamilkhel.github.io/eofigs/gallery/), with the code for
@@ -66,7 +71,7 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
 `register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
-`add_north_arrow`, `add_scale_bar`, `add_inset` and `trend_map`.
+`add_north_arrow`, `add_scale_bar`, `add_inset`, `trend_map` and `event_composite`.
 
 
 **v0.1**
