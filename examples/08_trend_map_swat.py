@@ -6,12 +6,14 @@ year), 2001–2024, around the Swat valley (pre-2026 district boundary): the for
 district (before January 2026), now Swat and Bar Swat (geoBoundaries). Browning is
 terracotta and greening slate teal. Colours are limited to ±0.08 decade⁻¹ (98th
 percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
-significant (Mann–Kendall, p < 0.05; no correction for serial autocorrelation). Hatched
-grey: mean NDVI below 0.1 over the record (not vegetated) or no valid trend (too few
-valid observations). The caption sentences on colour limits, dots and grey come from
-`fig.eofigs_layout["caption"]`. MODIS data: NASA LP DAAC, accessed through the Microsoft
-Planetary Computer. Boundaries and names shown do not imply any opinion on the legal
-status of any country or territory.
+significant (Mann–Kendall, p < 0.05; no correction for serial autocorrelation). Grey
+with diagonal hatching: mean NDVI below 0.1 over the record (not vegetated; 14.8 % of
+pixels). Grey with cross-hatching: no valid trend (too few observations; 0.8 % of
+pixels). The caption sentences on colour limits, dots and grey come from
+`fig.eofigs_layout["caption"]`. Browning runs along the valley floor from Mingora to
+Bahrain; greening is widespread and strongest in the lower valley. MODIS data: NASA LP
+DAAC, accessed through the Microsoft Planetary Computer. Boundaries and names shown do not
+imply any opinion on the legal status of any country or territory.
 """
 
 from pathlib import Path
@@ -37,7 +39,12 @@ def swat_ndvi():
 
 
 eofigs.set_style("elsevier")
-fig = eofigs.trend_map(swat_ndvi(), aoi=DATA / "swat_boundary.geojson", width="onehalf")
+fig = eofigs.trend_map(
+    swat_ndvi(),
+    aoi=DATA / "swat_boundary.geojson",
+    aoi_label="Swat valley\n(pre-2026 district boundary)",
+    width="onehalf",
+)
 
 if __name__ == "__main__":
     print(fig.eofigs_layout["caption"])

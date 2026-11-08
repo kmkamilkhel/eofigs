@@ -69,9 +69,9 @@ uses [Semantic Versioning](https://semver.org/).
   1000 dpi for Elsevier, 1200 dpi for Springer).
 - Variable library (`variable`, `register_variable`, `Variable`): 22 Earth observation
   variables in `variables.json` with long names, symbols, mathtext units, cmcrameri colour
-  maps, default ranges and zero-centred anomaly and trend maps (terracotta–slate for
-  vegetation indices and productivity, `vik` with the physically sensible direction for the
-  others); recognises xarray variables
+  maps, default ranges and zero-centred anomaly and trend maps (terracotta–slate for all
+  vegetation variables: indices, productivity and structure; `vik` with the physically
+  sensible direction for water, temperature, terrain and burn severity); recognises xarray variables
   from CF attributes and writes CF units in mathtext.
 - `fit_raster`: reduces GeoTIFFs, COGs and xarray rasters to the printed resolution (mean,
   mode or mask fraction), ignores nodata, sets sparse pixels to NaN (`min_valid`), keeps the

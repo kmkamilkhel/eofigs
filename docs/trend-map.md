@@ -7,7 +7,11 @@ size the printed page can show.
 import eofigs
 
 eofigs.set_style("elsevier")
-fig = eofigs.trend_map(ndvi_cube, aoi="swat_boundary.geojson")  # time, y, x with a CRS
+fig = eofigs.trend_map(
+    ndvi_cube,  # time, y, x with a CRS
+    aoi="swat_boundary.geojson",
+    aoi_label="Swat valley\n(pre-2026 district boundary)",
+)
 print(fig.eofigs_layout["caption"])  # the caption sentences on limits, dots and grey
 eofigs.save_figure(fig, "figures/fig2")
 ```
@@ -18,8 +22,9 @@ Theil–Sen trend of growing-season NDVI (MODIS MOD13A1, 500 m, May–September 
 2001–2024, around the Swat valley (pre-2026 district boundary): the former Swat district
 (before January 2026), now Swat and Bar Swat. Colours are limited to ±0.08 decade⁻¹ (98th
 percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
-significant (Mann–Kendall, p < 0.05). Hatched grey: mean NDVI below 0.1 over the record (not
-vegetated) or no valid trend. Boundaries and names shown do not imply any opinion on the
+significant (Mann–Kendall, p < 0.05). Grey with diagonal hatching: mean NDVI below 0.1 over
+the record (not vegetated; 14.8 % of pixels). Grey with cross-hatching: no valid trend (too
+few observations; 0.8 % of pixels). Boundaries and names shown do not imply any opinion on the
 legal status of any country or territory. Full code and downloads:
 [gallery](gallery/trend_map_swat.md).
 
@@ -34,14 +39,19 @@ legal status of any country or territory. Full code and downloads:
    half (`sig_fraction`) of its valid full-resolution pixels are significant. Dots are
    0.35 mm, dark with a thin white edge, so they read on both ends of the colour map.
 4. **Colours** come from the variable library and are centred exactly on zero. Vegetation
-   indices and productivity use terracotta (browning) to slate teal (greening); other
+   variables (indices, productivity and structure) use terracotta (browning, loss) to slate
+   teal (greening, gain); other
    variables use `vik` in the physically sensible direction (see
    [Variables](variables.md)). The limits are symmetric, at the 98th percentile of
    |slope| rounded up (`limits=`), with arrows on the colour bar when values are clipped.
-5. **Not vegetated.** For vegetation indices, pixels whose mean over the record is below
-   0.1 (rock, snow, ice) are left out and drawn in hatched grey (`exclude=`; plain grey
-   would be too close to weak greening for colour-blind readers). Pixels without a valid
-   trend are hatched grey as well.
+5. **Two masked classes in grey #BDBDBD, told apart by hatching** (plain grey would be too
+   close to weak greening for colour-blind readers):
+   - **not vegetated** (diagonal hatching): for vegetation indices, pixels whose mean over
+     the record is below 0.1 (rock, snow, ice) are left out (`exclude=`);
+   - **no valid trend** (cross-hatching): too few valid observations.
+
+   Each class has its own legend entry and caption clause with its share of pixels, and is
+   left out when it has none.
 
 ## The caption sentence
 
@@ -52,12 +62,14 @@ the exact numbers:
 fig.eofigs_layout["caption"]
 # 'Colours are limited to ±0.08 decade⁻¹ (98th percentile of |slope|); 1.9 % of pixels
 #  exceed this. Dots: at least 50 % of 500 m pixels significant (Mann–Kendall, p < 0.05).
-#  Hatched grey: mean NDVI below 0.1 over the record (not vegetated) or no valid trend
-#  (too few valid observations).'
+#  Grey with diagonal hatching: mean NDVI below 0.1 over the record (not vegetated; 14.8 %
+#  of pixels). Grey with cross-hatching: no valid trend (too few observations; 0.8 % of
+#  pixels).'
 ```
 
 `fig.eofigs_layout` also records the limits, the clipped share, the share of significant
-pixels, the number of marks and the cell size.
+pixels, the shares of not-vegetated and no-data pixels, the number of marks and the cell
+size.
 
 ## Latitude profile
 
