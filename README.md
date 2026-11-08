@@ -41,6 +41,11 @@ journal-ready figures that know the analysis, the variable and the printed size:
 <tr>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite: Swat hot-dry months</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_synthetic.png" alt="Event composite with significance"></a><br><b>Event composite with significance</b></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_icesat2/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_icesat2.png" alt="Accuracy scatter: ICESat-2 against a DEM"></a><br><b>Accuracy scatter: ICESat-2 against a DEM</b></td>
+</tr>
+<tr>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_synthetic.png" alt="Accuracy scatter: calibration and validation"></a><br><b>Accuracy scatter: calibration and validation</b></td>
+<td width="33%"></td>
 <td width="33%"></td>
 </tr>
 </table>
@@ -71,7 +76,8 @@ docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:dev python script.py
 Available in the development version: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
 `register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
-`add_north_arrow`, `add_scale_bar`, `add_inset`, `trend_map` and `event_composite`.
+`add_north_arrow`, `add_scale_bar`, `add_inset`, `trend_map`, `event_composite` and
+`accuracy_scatter`.
 
 
 **v0.1**
@@ -88,7 +94,7 @@ Available in the development version: `set_style`, `style`, `new_figure`, `label
 | `study_area_map` | DEM hillshade, overlay, labelled points, locator inset, graticule, north arrow to true north, scale bar, legend; automatic layout |
 | `trend_map` | Trend map with zero-centred colours, significance dots, optional latitude profile |
 | `event_composite` | Before/during/after anomaly maps with a composite time series |
-| `accuracy_scatter` | Density scatter with 1:1 line, R², RMSE and bias |
+| `accuracy_scatter` | Observed against predicted values with the 1:1 line, a fitted line (Piñeiro et al. 2008), R², RMSE and bias, density colours or groups |
 
 **v0.2**: burn severity, recovery and disturbance recipes, SHAP and partial dependence styling,
 confusion matrix, Google Earth Engine input through Xee at print scale.

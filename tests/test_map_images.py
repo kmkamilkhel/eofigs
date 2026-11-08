@@ -148,3 +148,24 @@ def test_event_composite_two_phases_image():
         return eofigs.event_composite(
             cube, events, maps=("during", "after"), series=False, width="onehalf"
         )
+
+
+def _accuracy_pairs(n, seed):
+    rng = np.random.default_rng(seed)
+    observed = rng.gamma(4, 40, n)
+    return observed, 15 + 0.85 * observed + rng.normal(0, 25, n)
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_accuracy_scatter_groups_image():
+    observed, predicted = _accuracy_pairs(300, 4)
+    groups = np.where(np.arange(300) % 3 == 0, "Conifer", "Broadleaf")
+    with eofigs.style("custom", font="DejaVu Sans"):
+        return eofigs.accuracy_scatter(observed, predicted, variable="agb", groups=groups)
+
+
+@pytest.mark.mpl_image_compare(**COMPARE)
+def test_accuracy_scatter_density_image():
+    observed, predicted = _accuracy_pairs(4000, 5)
+    with eofigs.style("custom", font="DejaVu Sans"):
+        return eofigs.accuracy_scatter(observed, predicted, variable="agb", fit="rma")
