@@ -55,7 +55,7 @@ CARD_SIZE = (800, 600)
 #: tile title.
 README_CARDS = (
     ("study_area_swat", 1, (0.075, 0.0, 1.0, 0.52), "figure", "Study area map"),
-    ("trend_map_swat", 1, (0.12, 0.338, 0.86, 0.77), "figure", "Trend map"),
+    ("trend_map_swat", 1, (0.19, 0.436, 0.80, 0.792), "figure", "Trend map"),
     ("event_composite_swat", 1, (0.08, 0.0, 0.96, 0.66), "figure", "Event composite"),
     ("accuracy_scatter_icesat2", 1, (0.555, 0.0, 1.0, 1.0), "white", "DEM accuracy (ICESat-2)"),
     ("fdr_synthetic", 1, (0.33, 0.0, 1.0, 0.92), "figure", "False discovery rate"),
