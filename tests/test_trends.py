@@ -256,6 +256,24 @@ def test_auto_exclusion_of_bare_pixels(custom_style):
     assert eofigs.trend_map(temperature).eofigs_layout["excluded_percent"] == 0.0
 
 
+def test_pixels_without_any_value_lie_outside_the_data(custom_style):
+    cube = _cube(np.full((20, 20), 0.01), noise=0.002)
+    cube[:, :, :8] = np.nan  # no value at any step: outside the data (160 pixels)
+    cube[3:, 10, 10] = np.nan  # three values only: no valid trend (1 pixel)
+    fig = eofigs.trend_map(cube, exclude=None)
+    layout = fig.eofigs_layout
+    assert layout["no_data_percent"] == pytest.approx(100 / 240, abs=0.01)  # of 240 in the data
+    assert "(too few observations; 0.4 % of pixels)" in layout["caption"]
+    assert sum(c.get_hatch() == trends.NO_DATA_HATCH for c in fig.axes[0].collections) == 1
+    full = _cube(np.full((20, 20), 0.01), noise=0.002)
+    full[:, :, :8] = np.nan
+    clean = eofigs.trend_map(full, exclude=None)
+    assert clean.eofigs_layout["no_data_percent"] == 0.0
+    labels = [t.get_text() for leg in clean.legends for t in leg.get_texts()]
+    assert not any(label.startswith("No valid trend") for label in labels)
+    assert not any(c.get_hatch() == trends.NO_DATA_HATCH for c in clean.axes[0].collections)
+
+
 def test_two_masked_classes_are_told_apart(custom_style):
     values = np.full((20, 20), 0.01)
     values[0, :] = np.nan  # 5 % without data

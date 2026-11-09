@@ -5,8 +5,7 @@ median), 2001–2024, around the Swat valley (pre-2026 district boundary): the f
 district (before January 2026), now Swat and Bar Swat (geoBoundaries). Dots: at least 50 %
 of 500 m pixels significant (Mann–Kendall, p < 0.05); the per-pixel tests assume serial
 independence and are not adjusted for multiple comparisons. Grey with diagonal hatching: mean
-NDVI below 0.1 over the record (not vegetated); grey with cross-hatching: no valid trend
-(too few observations). (b) Median and interquartile range of
+NDVI below 0.1 over the record (not vegetated). (b) Median and interquartile range of
 the full-resolution slope in 0.02° latitude bands, vegetated pixels only, bands with at
 least 20 valid pixels; the bands line up with the map's latitudes. Greening is strongest
 in the south (lower valley) and weakens towards the high mountains in the north. MODIS

@@ -201,6 +201,13 @@ def trend_map(
     var = _trend_variable(variable, grids.slope, per)
     excluded, threshold = _excluded(exclude, data, dim, var, grids.slope)
     valid = np.isfinite(grids.slope.values) & ~excluded
+    # pixels without a value at any step lie outside the data: not drawn, not counted
+    footprint = (
+        np.isfinite(np.asarray(data.values)).any(axis=data.get_axis_num(dim))
+        if data is not None
+        else np.ones(grids.slope.shape, dtype=bool)
+    )
+    no_data = ~np.isfinite(grids.slope.values) & ~excluded & footprint
     fdr_record = None
     if q is not None and grids.pvalues is not None:
         result = fdr_mask(grids.pvalues, q=q, valid=valid)
@@ -231,7 +238,7 @@ def trend_map(
     size = mpl.rcParams["font.size"]
     outline_label = aoi_label if aoi is not None else None
     handles = _legend_handles(outline_label, grids, stipple, alpha, q, sig_fraction, excluded,
-                              grids.slope, exclude_label)  # fmt: skip
+                              no_data, exclude_label)  # fmt: skip
     legend_mm = maps._legend_size(handles, small) if legend and handles else None
     spec = None
     if north_arrow or scale_bar:
@@ -264,7 +271,6 @@ def trend_map(
 
     dpi = preset.export_dpi
     image = _draw_slope(ax, shown, var, limit, crs, extent, map_w, map_h, dpi, projection)
-    no_data = ~np.isfinite(grids.slope.values) & ~excluded
     for mask, hatch in ((excluded, EXCLUDED_HATCH), (no_data, NO_DATA_HATCH)):
         grey = xr.DataArray(mask, coords=grids.slope.coords, dims=grids.slope.dims)
         _draw_grey(ax, grey.rio.write_crs(src_crs), hatch, crs, extent, map_w, map_h, dpi,
@@ -311,8 +317,10 @@ def trend_map(
         **stats,
         "fdr": fdr_record,
         "seasonal": grids.seasonal,
-        "excluded_percent": round(100.0 * float(excluded.mean()), 2),
-        "no_data_percent": round(100.0 * float(no_data.mean()), 2),
+        "excluded_percent": round(
+            100.0 * float((excluded & footprint).sum()) / max(int(footprint.sum()), 1), 2
+        ),
+        "no_data_percent": round(100.0 * float(no_data.sum()) / max(int(footprint.sum()), 1), 2),
         "marks": marks,
         "mark_cell_mm": cell_mm,
         "items": {k: v[0] for k, v in items.items()},
@@ -719,7 +727,7 @@ def mark_label(alpha: float, q: float | None, sig_fraction: float) -> str:
     return f"{rule} in ≥ {sig_fraction * 100:g} % of pixels"
 
 
-def _legend_handles(aoi_label, grids, stipple, alpha, q, sig_fraction, excluded, slope, label):
+def _legend_handles(aoi_label, grids, stipple, alpha, q, sig_fraction, excluded, no_data, label):
     handles = []
     if aoi_label is not None:
         handles.append(Line2D([], [], color=maps.AOI_COLOUR, linewidth=1.0, label=aoi_label))
@@ -735,7 +743,7 @@ def _legend_handles(aoi_label, grids, stipple, alpha, q, sig_fraction, excluded,
     if excluded.any():
         handles.append(Patch(facecolor=NO_DATA_COLOUR, edgecolor="white", hatch=EXCLUDED_HATCH,
                              linewidth=0.0, label=label))  # fmt: skip
-    if (~np.isfinite(slope.values) & ~excluded).any():
+    if no_data.any():
         handles.append(Patch(facecolor=NO_DATA_COLOUR, edgecolor="white", hatch=NO_DATA_HATCH,
                              linewidth=0.0, label=_no_data_label(grids)))  # fmt: skip
     return handles
