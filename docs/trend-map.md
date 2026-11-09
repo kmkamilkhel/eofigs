@@ -83,10 +83,75 @@ cell to be significant thins out isolated false positives, but it is not a corre
 multiple testing: neighbouring pixels are correlated, so false positives come in patches.
 The caption says both. With your own p-values (`slope=`, `pvalue=`) eofigs does not know
 the test, so the caption says only what eofigs did: "Significance from the supplied p-values
-(alpha = 0.05); eofigs applied no adjustment for multiple comparisons." Wilks (2016) explains why maps of per-pixel significance overstate
-results and recommends controlling the false discovery rate instead; that option is planned
-for eofigs 0.2. Until then, read the dots as a guide to where trends are consistent, not as
-a field significance test.
+(alpha = 0.05); eofigs applied no adjustment for multiple comparisons." Wilks (2016)
+explains why maps of per-pixel significance overstate results and recommends controlling the
+false discovery rate instead.
+
+## False discovery rate control
+
+`fdr="bh"` applies Benjamini–Hochberg false discovery rate (FDR) control before the marks
+are drawn:
+
+```python
+fig = eofigs.trend_map(ndvi_cube, fdr="bh")  # q = 2 × alpha = 0.10
+fig = eofigs.trend_map(ndvi_cube, fdr="bh", fdr_q=0.05)
+fig.eofigs_layout["fdr"]
+# {'method': 'bh', 'q': 0.1, 'n_tests': 43109, 'n_rejected': 26436, 'p_threshold': 0.0607}
+```
+
+- **What it controls:** the expected share of false discoveries among the pixels marked
+  significant is at most q. Without it, about 5 % of the pixels *without* a trend are
+  marked at p < 0.05, however few pixels have a trend.
+- **q:** `fdr_q`, by default 2 × `alpha`. Wilks (2016) recommends q = 2 × alpha for spatially
+  correlated fields, for example 0.10 for a field test at 0.05. The legend and the caption
+  give the q used.
+- **The family of tests** is every valid pixel of the grid passed in (finite slope and
+  p-value, not excluded): `fig.eofigs_layout["fdr"]["n_tests"]`. To make the study area the
+  family, clip the data to it before calling.
+- **The equivalent p threshold** (`p_threshold`, the largest p-value still significant) is in
+  the record and the caption. It depends on the data: where few pixels have a trend it is
+  far below 0.05; where most have one, it can be above 0.05.
+- The rule of marking a cell when at least half of its pixels are significant is unchanged.
+- [`eofigs.stats.fdr_mask`](api.md#eofigs.stats.fdr_mask) does the same for your own
+  figures and analyses.
+
+### A field with few trends
+
+A synthetic field with a known answer (the [gallery figure](gallery/fdr_synthetic.md)):
+20 annual NDVI values for 48 × 64 pixels, a trend of 0.04 per decade in a disc of 317 pixels
+(10.3 %) and none in the other 2 755, noise 0.02.
+
+![A known trend, marks at p < 0.05 and with false discovery rate control](gallery/images/fdr_synthetic.png)
+
+| Rule | Pixels marked | With a trend | Without a trend | False share of the marks |
+|---|---|---|---|---|
+| p < 0.05 | 445 | 314 of 317 | 131 of 2 755 (4.8 %) | 29.4 % |
+| FDR, q = 0.10 (p ≤ 0.010) | 330 | 302 of 317 | 28 of 2 755 (1.0 %) | 8.5 % |
+
+With few pixels trending, FDR control is much stricter than p < 0.05: it removes most of
+the scattered false marks and keeps almost all of the real ones.
+
+### A field with many trends
+
+In the Swat NDVI series (the [trend map](gallery/trend_map_swat.md) above; 43 109 vegetated
+pixels with a valid trend) greening is widespread:
+
+| Rule | Pixels significant | Equivalent p |
+|---|---|---|
+| p < 0.05 | 59.3 % | 0.05 |
+| FDR, q = 0.10 | 61.3 % | 0.061 |
+| FDR, q = 0.05 | 52.4 % | 0.026 |
+
+Here FDR control at q = 0.10 is slightly *less* strict than p < 0.05, and the maps with and
+without it look almost the same. This is how the method works, not a fault: it bounds the
+expected share of false discoveries among the marked pixels (at most 10 %), not the share of
+trend-free pixels that are marked. When most pixels have a trend, many tests are rejected and
+the step-up threshold rises. The marks then carry a different guarantee, not a stricter test.
+
+Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: a practical and
+powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B
+(Methodological)*, 57(1), 289–300.
+[doi:10.1111/j.2517-6161.1995.tb02031.x](https://doi.org/10.1111/j.2517-6161.1995.tb02031.x)
 
 Wilks, D. S. (2016). "The stippling shows statistically significant grid points": how
 research results are routinely overstated and overinterpreted, and what to do about it.
@@ -108,6 +173,7 @@ fewer than 20 pixels are skipped. The bands line up with the map.
 | `data` | a time-series cube (`time`, `y`, `x`) with a CRS; `trend` is run on it |
 | `slope`, `pvalue` | precomputed grids on the same grid and CRS (dimension order may differ); without `pvalue` there are no marks |
 | `alpha`, `sig_fraction`, `dot_spacing_mm`, `stipple` | the significance rule and its marks |
+| `fdr`, `fdr_q` | Benjamini–Hochberg false discovery rate control of the marks (off by default) |
 | `limits` | `"p98"` (default), a number, or `None` for the largest absolute slope |
 | `exclude` | `"auto"`, a threshold on the record mean, a boolean grid, or `None` |
 | `aoi` | study area outline; the map then shows the study area with a margin |

@@ -9,6 +9,23 @@ drawn again.
 
 ## [Unreleased]
 
+### Added
+
+- `fdr="bh"` in `trend_map` and `event_composite`: Benjamini–Hochberg false discovery rate
+  control of the significance marks, at `fdr_q` (default 2 × `alpha`, Wilks 2016), over the
+  valid pixels of the grid (in `event_composite` separately for each map). The record gives
+  the method, q, the number of tests, the number significant and the equivalent p
+  threshold; the legend and the caption say what was applied. Off by default.
+- `eofigs.stats.fdr_mask`: the same correction for any array of p-values.
+- Gallery: a synthetic field with a known trend, marked at p < 0.05 and with false
+  discovery rate control; the trend map page compares both on the Swat NDVI series.
+
+### Fixed
+
+- `trend_map` drawn into a subfigure leaves room above the map for a panel letter when panel
+  labels are on, as `study_area_map` does; the letters were cut off at the top.
+  **Affects existing figures: re-render.**
+
 ### Changed
 
 - The citation page and the README give the version DOI of 0.1.1

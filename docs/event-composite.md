@@ -52,7 +52,11 @@ downloads: [gallery](gallery/event_composite_swat.md).
    are not adjusted for multiple comparisons, and the caption says that too: at p < 0.05
    about 5 % of the pixels without an effect are marked by chance, in patches where
    neighbouring pixels are correlated (Wilks 2016; see
-   [What the dots mean](trend-map.md#what-the-dots-mean)).
+   [What the dots mean](trend-map.md#what-the-dots-mean)). `fdr="bh"` applies
+   Benjamini–Hochberg false discovery rate control at `fdr_q` (default 2 × `alpha`),
+   separately to each map, over its valid pixels; the record gives the count of tests and the
+   equivalent p threshold for each map (`fig.eofigs_layout["phases"][phase]["fdr"]`). See
+   [False discovery rate control](trend-map.md#false-discovery-rate-control).
 6. **Masked classes** as in `trend_map`: grey with diagonal hatching for not vegetated
    (vegetation indices with a record mean below 0.1), grey with cross-hatching for no data.
    Pixels without any value in the record lie outside the data and are left white. Other

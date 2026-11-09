@@ -412,3 +412,26 @@ def test_caption_notes_multiple_comparisons(custom_style):
     )
     untested = eofigs.event_composite(_injected(noise=0.01), _events(), test=None)
     assert "multiple comparisons" not in _layout(untested)["caption"]
+
+
+def test_fdr_is_applied_to_each_map(custom_style):
+    cube = _injected(noise=0.01)
+    fig = eofigs.event_composite(cube, _events(), fdr="bh")
+    layout = _layout(fig)
+    for phase, record in layout["phases"].items():
+        fdr = record["fdr"]
+        assert fdr["method"] == "bh" and fdr["q"] == pytest.approx(0.10), phase
+        assert fdr["n_tests"] == 48
+        assert record["significant_percent"] == pytest.approx(
+            100 * fdr["n_rejected"] / 48, abs=0.01
+        )
+    caption = layout["caption"]
+    assert (
+        "Benjamini–Hochberg false discovery rate control at q = 0.10, applied separately to "
+        "each map" in caption
+    )
+    assert "not adjusted for multiple comparisons" not in caption
+    labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
+    assert "FDR q = 0.10 in ≥ 50 % of pixels" in labels
+    plain = _layout(eofigs.event_composite(cube, _events()))
+    assert all(r["fdr"] is None for r in plain["phases"].values())

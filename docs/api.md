@@ -48,6 +48,10 @@
 
 ::: eofigs.trend_map
 
+::: eofigs.stats.fdr_mask
+
+::: eofigs.stats.FdrResult
+
 ## Event composites
 
 ::: eofigs.event_composite
