@@ -550,3 +550,90 @@ def test_caption_states_the_test_assumptions(custom_style):
         "for multiple comparisons." in supplied
     )
     assert "Mann–Kendall" not in supplied
+
+
+# ----------------------------------------------------------------------------- false discovery rate
+
+
+def _trend_and_noise(seed=4):
+    """Left half: a real trend (tiny p-values); right half: no trend (uniform p-values)."""
+    rng = np.random.default_rng(seed)
+    p = rng.uniform(0, 1, (40, 60))
+    p[:, :30] = rng.uniform(0, 1e-4, (40, 30))
+    slope = np.where(np.arange(60)[None, :] < 30, 0.02, rng.normal(0, 0.005, (40, 60)))
+    return _grid(slope), _grid(p, name="pvalue")
+
+
+def test_fdr_removes_most_false_positives(custom_style):
+    slope, pvalue = _trend_and_noise()
+    plain = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi").eofigs_layout
+    fdr = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh").eofigs_layout
+    noise_share = float((pvalue.values[:, 30:] < 0.05).mean())
+    assert 0.03 < noise_share < 0.07  # about 5 % false positives without FDR
+    assert plain["significant_percent"] == pytest.approx(50 + 50 * noise_share, abs=0.01)
+    record = fdr["fdr"]
+    assert record["method"] == "bh" and record["q"] == pytest.approx(0.10)
+    assert record["n_tests"] == 2400
+    assert 1200 <= record["n_rejected"] < 1200 + 0.2 * 1200 * noise_share
+    assert record["p_threshold"] < 0.05
+    assert fdr["significant_percent"] == pytest.approx(100 * record["n_rejected"] / 2400, abs=0.01)
+    assert plain["fdr"] is None
+
+
+def test_fdr_q_default_explicit_and_errors(custom_style):
+    slope, pvalue = _trend_and_noise()
+    half = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh", alpha=0.025)
+    assert half.eofigs_layout["fdr"]["q"] == pytest.approx(0.05)  # 2 x alpha
+    given = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh", fdr_q=0.2)
+    assert given.eofigs_layout["fdr"]["q"] == pytest.approx(0.2)
+    with pytest.raises(ValueError, match="fdr must be"):
+        eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="by")
+    with pytest.raises(ValueError, match="fdr_q must be"):
+        eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh", fdr_q=1.5)
+    with pytest.raises(ValueError, match="fdr_q needs fdr"):
+        eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr_q=0.1)
+
+
+def test_fdr_family_is_the_valid_pixels(custom_style):
+    slope, pvalue = _trend_and_noise()
+    values = slope.values.copy()
+    values[:4, :] = np.nan  # no data: 240 pixels
+    excluded = _grid(np.zeros((40, 60))).astype(bool)
+    excluded[-6:, :] = True  # 360 pixels excluded
+    layout = eofigs.trend_map(slope=_grid(values), pvalue=pvalue, variable="ndvi",
+                              exclude=excluded, fdr="bh").eofigs_layout  # fmt: skip
+    assert layout["fdr"]["n_tests"] == 2400 - 240 - 360
+
+
+def test_fdr_legend_and_caption_from_trend(custom_style):
+    slope = np.full((12, 12), 0.01)
+    cube = _cube(slope, noise=0.002)
+    fig = eofigs.trend_map(cube, fdr="bh")
+    layout = fig.eofigs_layout
+    labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
+    assert "FDR q = 0.1 in ≥ 50 % of pixels" in labels
+    caption = layout["caption"]
+    n = layout["fdr"]["n_tests"]
+    assert (
+        f"(Mann–Kendall, Benjamini–Hochberg false discovery rate control at q = 0.1 over {n} "
+        "pixels, equivalent to p ≤ " in caption
+    )
+    assert "Wilks 2016" in caption
+    assert "Per-pixel Mann–Kendall tests assume serial independence." in caption
+    assert "not adjusted for multiple comparisons" not in caption
+
+
+def test_fdr_with_supplied_pvalues_and_no_rejection(custom_style):
+    slope, pvalue = _trend_and_noise()
+    caption = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi",
+                               fdr="bh").eofigs_layout["caption"]  # fmt: skip
+    expected = "(supplied p-values, Benjamini–Hochberg false discovery rate control at q = 0.1"
+    assert expected in caption
+    assert "eofigs applied no adjustment" not in caption
+    none = eofigs.trend_map(slope=slope, pvalue=xr.full_like(pvalue, 0.5), variable="ndvi",
+                            fdr="bh").eofigs_layout  # fmt: skip
+    assert none["marks"] == 0 and none["fdr"]["p_threshold"] is None
+    assert (
+        "No pixel is significant after Benjamini–Hochberg false discovery rate control at "
+        "q = 0.1 over 2400 pixels (supplied p-values; Wilks 2016)." in none["caption"]
+    )

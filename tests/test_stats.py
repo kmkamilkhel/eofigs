@@ -200,3 +200,59 @@ def test_unknown_variable_gets_generic_trend_labels():
     unnamed = trend(xr.DataArray(np.arange(10.0), dims="time", coords={"time": YEARS[:10]}))
     assert unnamed.slope.attrs["long_name"] == "Value trend"
     assert unnamed.slope.attrs["units"] == "decade$^{-1}$"
+
+
+# ----------------------------------------------------------------------------- false discovery rate
+
+#: A worked Benjamini-Hochberg example: with q = 0.10 and m = 10 the step-up thresholds are
+#: 0.01, 0.02, ..., 0.10; the largest p(i) <= i q / m is p(6) = 0.06, so six are rejected.
+P_EXAMPLE = np.array([0.001, 0.008, 0.039, 0.041, 0.042, 0.06, 0.074, 0.205, 0.212, 0.216])
+
+
+def test_fdr_mask_worked_example():
+    from eofigs.stats import fdr_mask
+
+    result = fdr_mask(P_EXAMPLE, q=0.10)
+    assert result.mask.tolist() == [True] * 6 + [False] * 4
+    assert result.p_threshold == 0.06
+    assert result.n_tests == 10 and result.n_rejected == 6
+    strict = fdr_mask(P_EXAMPLE, q=0.05)  # thresholds 0.005, 0.010, ...: p(2) = 0.008
+    assert strict.n_rejected == 2 and strict.p_threshold == 0.008
+    adjusted = sps.false_discovery_control(P_EXAMPLE, method="bh")
+    assert np.array_equal(result.mask, adjusted <= 0.10)
+
+
+def test_fdr_mask_family_nan_and_valid():
+    from eofigs.stats import fdr_mask
+
+    grid = np.full((3, 5), np.nan)
+    grid.flat[:10] = P_EXAMPLE
+    result = fdr_mask(grid, q=0.10)  # NaN is not a test
+    assert result.mask.shape == (3, 5) and result.n_tests == 10 and result.n_rejected == 6
+    valid = np.ones((3, 5), bool)
+    valid.flat[7:] = False  # a smaller family: 7 tests
+    smaller = fdr_mask(grid, q=0.10, valid=valid)
+    assert smaller.n_tests == 7
+    assert not smaller.mask.flat[7:].any()
+    reference = sps.false_discovery_control(P_EXAMPLE[:7], method="bh") <= 0.10
+    assert np.array_equal(smaller.mask.flat[:7], reference)
+
+
+def test_fdr_mask_dataarray_none_rejected_and_errors():
+    from eofigs.stats import fdr_mask
+
+    da = xr.DataArray(P_EXAMPLE.reshape(2, 5), dims=("y", "x"),
+                      coords={"y": [1.0, 0.0], "x": np.arange(5.0)})  # fmt: skip
+    result = fdr_mask(da, q=0.10)
+    assert isinstance(result.mask, xr.DataArray) and result.mask.dims == ("y", "x")
+    assert int(result.mask.sum()) == 6
+    none = fdr_mask(np.array([0.5, 0.6, np.nan]), q=0.10)
+    assert none.n_rejected == 0 and none.p_threshold is None and not none.mask.any()
+    empty = fdr_mask(np.array([np.nan, np.nan]))
+    assert empty.n_tests == 0 and empty.p_threshold is None
+    with pytest.raises(ValueError, match="q must be"):
+        fdr_mask(P_EXAMPLE, q=1.5)
+    with pytest.raises(ValueError, match="valid"):
+        fdr_mask(P_EXAMPLE, valid=np.ones(3, bool))
+    with pytest.raises(ValueError, match="between 0 and 1"):
+        fdr_mask(np.array([0.2, 1.4]))
