@@ -596,6 +596,10 @@ def test_fdr_removes_most_false_positives(custom_style):
     assert plain["fdr"] is None
 
 
+def test_q_text_has_two_decimals():
+    assert [trends.q_text(q) for q in (0.1, 0.05, 0.2, 0.025)] == ["0.10", "0.05", "0.20", "0.025"]
+
+
 def test_fdr_q_default_explicit_and_errors(custom_style):
     slope, pvalue = _trend_and_noise()
     half = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh", alpha=0.025)
@@ -627,11 +631,11 @@ def test_fdr_legend_and_caption_from_trend(custom_style):
     fig = eofigs.trend_map(cube, fdr="bh")
     layout = fig.eofigs_layout
     labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
-    assert "FDR q = 0.1 in ≥ 50 % of pixels" in labels
+    assert "FDR q = 0.10 in ≥ 50 % of pixels" in labels
     caption = layout["caption"]
     n = layout["fdr"]["n_tests"]
     assert (
-        f"(Mann–Kendall, Benjamini–Hochberg false discovery rate control at q = 0.1 over {n} "
+        f"(Mann–Kendall, Benjamini–Hochberg false discovery rate control at q = 0.10 over {n} "
         "pixels, equivalent to p ≤ " in caption
     )
     assert "Wilks 2016" in caption
@@ -643,7 +647,7 @@ def test_fdr_with_supplied_pvalues_and_no_rejection(custom_style):
     slope, pvalue = _trend_and_noise()
     caption = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi",
                                fdr="bh").eofigs_layout["caption"]  # fmt: skip
-    expected = "(supplied p-values, Benjamini–Hochberg false discovery rate control at q = 0.1"
+    expected = "(supplied p-values, Benjamini–Hochberg false discovery rate control at q = 0.10"
     assert expected in caption
     assert "eofigs applied no adjustment" not in caption
     none = eofigs.trend_map(slope=slope, pvalue=xr.full_like(pvalue, 0.5), variable="ndvi",
@@ -651,5 +655,5 @@ def test_fdr_with_supplied_pvalues_and_no_rejection(custom_style):
     assert none["marks"] == 0 and none["fdr"]["p_threshold"] is None
     assert (
         "No pixel is significant after Benjamini–Hochberg false discovery rate control at "
-        "q = 0.1 over 2400 pixels (supplied p-values; Wilks 2016)." in none["caption"]
+        "q = 0.10 over 2400 pixels (supplied p-values; Wilks 2016)." in none["caption"]
     )

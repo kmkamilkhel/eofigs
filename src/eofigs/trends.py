@@ -701,7 +701,7 @@ def _draw_marks(ax, significant, valid, slope, stipple, sig_fraction, spacing_mm
 
 def mark_label(alpha: float, q: float | None, sig_fraction: float) -> str:
     """Legend text of the significance marks."""
-    rule = f"p < {alpha:g}" if q is None else f"FDR q = {q:g}"
+    rule = f"p < {alpha:g}" if q is None else f"FDR q = {q_text(q)}"
     return f"{rule} in ≥ {sig_fraction * 100:g} % of pixels"
 
 
@@ -895,6 +895,18 @@ def count(n: int) -> str:
     return f"{n:,}".replace(",", " ") if n >= 10_000 else str(n)
 
 
+def q_text(q: float) -> str:
+    """Format a false discovery rate with at least two decimals, like "p < 0.05".
+
+    Examples
+    --------
+    >>> from eofigs.trends import q_text
+    >>> q_text(0.1), q_text(0.05), q_text(0.025)
+    ('0.10', '0.05', '0.025')
+    """
+    return f"{q:.2f}" if abs(q * 100 - round(q * 100)) < 1e-9 else f"{q:g}"
+
+
 def p_text(p: float) -> str:
     """Format a p-value threshold with two significant digits ("0.012", "3.4 × 10⁻⁵").
 
@@ -945,8 +957,8 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
                              "eofigs applied no adjustment for multiple comparisons.")  # fmt: skip
         else:
             source = "Mann–Kendall" if grids.from_test else "supplied p-values"
-            rule = (f"Benjamini–Hochberg false discovery rate control at q = {fdr['q']:g} over "
-                    f"{count(fdr['n_tests'])} pixels")  # fmt: skip
+            rule = ("Benjamini–Hochberg false discovery rate control at q = "
+                    f"{q_text(fdr['q'])} over {count(fdr['n_tests'])} pixels")  # fmt: skip
             if fdr["n_rejected"] == 0:
                 parts.append(f"No pixel is significant after {rule} ({source}; Wilks 2016).")
             else:

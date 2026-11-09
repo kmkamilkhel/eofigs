@@ -17,7 +17,8 @@ drawn again.
   the method, q, the number of tests, the number significant and the equivalent p
   threshold; the legend and the caption say what was applied. Off by default.
 - `eofigs.stats.fdr_mask`: the same correction for any array of p-values.
-- Gallery: the Swat NDVI trend without and with false discovery rate control.
+- Gallery: a synthetic field with a known trend, marked at p < 0.05 and with false
+  discovery rate control; the trend map page compares both on the Swat NDVI series.
 
 ### Fixed
 

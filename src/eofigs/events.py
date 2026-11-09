@@ -1071,7 +1071,7 @@ def _caption(record, used, var, grid, times, o, threshold, tested, labels=None) 
             parts.append(
                 f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
                 f"significant ({name} across {n} events; Benjamini–Hochberg false discovery "
-                f"rate control at q = {q:g}, applied separately to each map; "
+                f"rate control at q = {trends.q_text(q)}, applied separately to each map; "
                 + "; ".join(clauses)
                 + "; Wilks 2016)."
             )

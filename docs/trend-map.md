@@ -115,32 +115,38 @@ fig.eofigs_layout["fdr"]
 - [`eofigs.stats.fdr_mask`](api.md#eofigs.stats.fdr_mask) does the same for your own
   figures and analyses.
 
-A synthetic example with a known answer: 20 annual values for 60 × 80 pixels, a trend of
-0.04 per decade in 480 pixels (10 %) and none in the other 4 320, noise 0.02:
+### A field with few trends
 
-```python
-import numpy as np, pandas as pd, xarray as xr
-import eofigs
-from eofigs.stats import fdr_mask
+A synthetic field with a known answer (the [gallery figure](gallery/fdr_synthetic.md)):
+20 annual NDVI values for 48 × 64 pixels, a trend of 0.04 per decade in a disc of 317 pixels
+(10.3 %) and none in the other 2 755, noise 0.02.
 
-rng = np.random.default_rng(42)
-time = pd.date_range("2001-01-01", periods=20, freq="YS")
-values = rng.normal(0.5, 0.02, (20, 60, 80))
-values[:, :, :8] += 0.004 * np.arange(20)[:, None, None]
-p = eofigs.trend(xr.DataArray(values, dims=("time", "y", "x"), coords={"time": time})).pvalue.values
-result = fdr_mask(p, q=0.10)  # p_threshold 0.0104
-```
+![A known trend, marks at p < 0.05 and with false discovery rate control](gallery/images/fdr_synthetic.png)
 
-| Rule | Pixels marked | True trends kept | Pixels without a trend marked | False share of marked pixels |
+| Rule | Pixels marked | With a trend | Without a trend | False share of the marks |
 |---|---|---|---|---|
-| p < 0.05 | 673 | 476 of 480 | 197 of 4 320 (4.6 %) | 29.3 % |
-| FDR, q = 0.10 | 507 | 461 of 480 | 46 of 4 320 (1.1 %) | 9.1 % |
+| p < 0.05 | 445 | 314 of 317 | 131 of 2 755 (4.8 %) | 29.4 % |
+| FDR, q = 0.10 (p ≤ 0.010) | 330 | 302 of 317 | 28 of 2 755 (1.0 %) | 8.5 % |
 
-In the Swat NDVI series the opposite happens: greening is so widespread (59 % of the
-vegetated pixels at p < 0.05) that the threshold at q = 0.10 is p ≤ 0.061, and slightly more
-pixels are marked than without FDR. The marks then carry a different guarantee (at most 10 %
-false discoveries among them, in expectation), not a stricter test. See the
-[gallery figure](gallery/trend_fdr_swat.md) with both panels.
+With few pixels trending, FDR control is much stricter than p < 0.05: it removes most of
+the scattered false marks and keeps almost all of the real ones.
+
+### A field with many trends
+
+In the Swat NDVI series (the [trend map](gallery/trend_map_swat.md) above; 43 109 vegetated
+pixels with a valid trend) greening is widespread:
+
+| Rule | Pixels significant | Equivalent p |
+|---|---|---|
+| p < 0.05 | 59.3 % | 0.05 |
+| FDR, q = 0.10 | 61.3 % | 0.061 |
+| FDR, q = 0.05 | 52.4 % | 0.026 |
+
+Here FDR control at q = 0.10 is slightly *less* strict than p < 0.05, and the maps with and
+without it look almost the same. This is how the method works, not a fault: it bounds the
+expected share of false discoveries among the marked pixels (at most 10 %), not the share of
+trend-free pixels that are marked. When most pixels have a trend, many tests are rejected and
+the step-up threshold rises. The marks then carry a different guarantee, not a stricter test.
 
 Benjamini, Y., & Hochberg, Y. (1995). Controlling the false discovery rate: a practical and
 powerful approach to multiple testing. *Journal of the Royal Statistical Society: Series B

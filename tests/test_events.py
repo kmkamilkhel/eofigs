@@ -427,11 +427,11 @@ def test_fdr_is_applied_to_each_map(custom_style):
         )
     caption = layout["caption"]
     assert (
-        "Benjamini–Hochberg false discovery rate control at q = 0.1, applied separately to "
+        "Benjamini–Hochberg false discovery rate control at q = 0.10, applied separately to "
         "each map" in caption
     )
     assert "not adjusted for multiple comparisons" not in caption
     labels = [t.get_text() for leg in fig.legends for t in leg.get_texts()]
-    assert "FDR q = 0.1 in ≥ 50 % of pixels" in labels
+    assert "FDR q = 0.10 in ≥ 50 % of pixels" in labels
     plain = _layout(eofigs.event_composite(cube, _events()))
     assert all(r["fdr"] is None for r in plain["phases"].values())
