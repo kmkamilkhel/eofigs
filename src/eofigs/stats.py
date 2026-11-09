@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import warnings
 from typing import Any, NamedTuple
 
 import numpy as np
@@ -10,6 +11,20 @@ from scipy.special import ndtr
 
 DAYS_PER_YEAR = 365.2425
 _PER_YEARS = {"year": 1.0, "decade": 10.0}
+#: Seasons with fewer valid values than this are left out of the seasonal test (as in rkt).
+MIN_SEASON_VALUES = 4
+#: The Hirsch-Slack correction needs at least this many complete years (Hirsch and Slack 1984).
+MIN_CORRECTION_YEARS = 10
+#: A median time step shorter than this (days) counts as sub-annual data.
+SUBANNUAL_DAYS = 300
+
+
+class TrendWarning(UserWarning):
+    """Warning from :func:`trend` about seasonal data.
+
+    Raised for sub-annual data without ``seasonal``, and for records too short for the
+    Hirsch-Slack correction.
+    """
 
 
 def trend(
@@ -19,6 +34,8 @@ def trend(
     alpha: float = 0.05,
     min_valid: int = 8,
     memory_mb: float = 256,
+    seasonal: Any = None,
+    seasonal_correction: bool = True,
 ) -> xr.Dataset:
     """Theil–Sen slope and Mann–Kendall significance for every pixel of a time series.
 
@@ -39,6 +56,18 @@ def trend(
     memory_mb : float, default 256
         Memory budget for the pairwise slopes. Pixels are processed in blocks that fit
         this budget, so any series length works; long series are only slower.
+    seasonal : {"month", "none"}, array-like or None, default None
+        Seasonal Mann–Kendall test and seasonal Kendall slope (Hirsch et al. 1982) for
+        sub-annual series: the test and the slope compare only values of the same season
+        in different years, so a seasonal cycle does not distort them. ``"month"`` uses the
+        calendar month of each date; an array gives one season label per time step (for
+        16- or 8-day composites, for example the composite's day of year). Each season may
+        have one value per calendar year. ``"none"`` (or None for annual data) keeps the
+        plain test; None with sub-annual data also keeps it but warns.
+    seasonal_correction : bool, default True
+        With ``seasonal``: correct the variance of the test statistic for correlation
+        between seasons (Hirsch and Slack 1984, as in the R package rkt). Needs at least
+        10 complete years; with fewer the uncorrected test is used, with a warning.
 
     Returns
     -------
@@ -53,7 +82,15 @@ def trend(
     Raises
     ------
     ValueError
-        If ``dim`` is missing or not a datetime coordinate, or an argument is invalid.
+        If ``dim`` is missing or not a datetime coordinate, an argument is invalid, the
+        seasonal labels do not match the time steps, there are fewer than 2 seasons, or a
+        season has more than one value in a calendar year.
+
+    Warns
+    -----
+    TrendWarning
+        For sub-annual data without ``seasonal``, and when the record is too short for the
+        Hirsch–Slack correction.
 
     Notes
     -----
@@ -91,10 +128,25 @@ def trend(
             f"The {dim!r} coordinate must hold dates (datetime64); slopes are computed against "
             "real time. Convert it, for example with pd.to_datetime, or assign dates."
         )
+    labels = _season_labels(seasonal, data, dim)
     data = data.sortby(dim)
     years = (data[dim].values - data[dim].values[0]) / np.timedelta64(1, "D") / DAYS_PER_YEAR
     if np.any(np.diff(years) <= 0):
         raise ValueError(f"The {dim!r} coordinate has duplicate dates.")
+    if seasonal is None and years.size > 2:
+        step = float(np.median(np.diff(years))) * DAYS_PER_YEAR
+        if step < SUBANNUAL_DAYS:
+            warnings.warn(
+                f"The data have time steps shorter than a year (median {step:.0f} days) and "
+                "seasonal= is not set: a seasonal cycle distorts the Mann-Kendall test and the "
+                'slope. Pass seasonal="month" (or season labels), aggregate to annual values, '
+                'or pass seasonal="none" to keep the plain test.',
+                TrendWarning,
+                stacklevel=2,
+            )
+    if labels is not None:
+        return _seasonal_trend(data, dim, labels, seasonal, seasonal_correction, years, per,
+                               alpha, min_valid, memory_mb)  # fmt: skip
 
     values = data.astype("float64")
     if values.chunks is not None:
@@ -133,6 +185,8 @@ def trend(
             "autocorrelation": "not corrected",
             "alpha": alpha,
             "min_valid": min_valid,
+            "seasonal": "none",
+            "seasonal_correction": "none",
             "time_start": first_date,
             "time_end": str(data[dim].values[-1])[:10],
             "source_variable": source_name,
@@ -219,6 +273,190 @@ def fdr_mask(pvalues: Any, q: float = 0.10, valid: Any = None) -> FdrResult:
     if isinstance(pvalues, xr.DataArray):
         mask = xr.DataArray(mask, coords=pvalues.coords, dims=pvalues.dims, name="significant")
     return FdrResult(mask, threshold, int(p.size), n_rejected)
+
+
+def _season_labels(seasonal, data, dim) -> np.ndarray | None:
+    """Season label of each time step, in the order of the sorted dates; None for no seasons."""
+    if seasonal is None or (isinstance(seasonal, str) and seasonal == "none"):
+        return None
+    if isinstance(seasonal, str):
+        if seasonal != "month":
+            raise ValueError(
+                f"seasonal must be 'month', 'none', None or an array of labels (got {seasonal!r})."
+            )
+        labels = data[dim].dt.month.values
+    else:
+        labels = np.asarray(seasonal)
+        if labels.ndim != 1 or labels.size != data.sizes[dim]:
+            raise ValueError(
+                f"seasonal needs one label per time step ({data.sizes[dim]}); got shape "
+                f"{labels.shape}."
+            )
+    order = np.argsort(data[dim].values, kind="stable")
+    return labels[order]
+
+
+def _seasonal_trend(data, dim, labels, seasonal, correction, years, per, alpha, min_valid,
+                    memory_mb) -> xr.Dataset:  # fmt: skip
+    names, codes = np.unique(labels, return_inverse=True)
+    n_seasons = names.size
+    if n_seasons < 2:
+        raise ValueError(
+            "The seasonal test needs at least 2 seasons; these data have one value per year. "
+            'Use seasonal="none" for annual data.'
+        )
+    calendar_year = data[dim].dt.year.values
+    year_index = calendar_year - calendar_year.min()
+    n_years = int(year_index.max()) + 1
+    slot = year_index * n_seasons + codes
+    counts = np.bincount(slot, minlength=n_years * n_seasons)
+    if (counts > 1).any():
+        crowded = np.nonzero(counts > 1)[0]
+        where = [f"{calendar_year.min() + c // n_seasons} season {names[c % n_seasons]} "
+                 f"({counts[c]} values)" for c in crowded[:5]]  # fmt: skip
+        more = f" and {crowded.size - 5} more" if crowded.size > 5 else ""
+        raise ValueError(
+            "The seasonal test takes one value per season and calendar year, but there is "
+            "more than one value in a season and year: " + "; ".join(where) + more + ". "
+            "Resample to one value per season and year (for example monthly means), or pass "
+            "season labels that tell the values apart."
+        )
+    complete = int((counts.reshape(n_years, n_seasons) > 0).all(axis=1).sum())
+    note = "Hirsch-Slack 1984" if correction else "none"
+    if correction and complete < MIN_CORRECTION_YEARS:
+        warnings.warn(
+            f"The record has {complete} complete years; the Hirsch-Slack correction for "
+            f"correlation between seasons needs at least {MIN_CORRECTION_YEARS} complete "
+            "years. The uncorrected seasonal test is used.",
+            TrendWarning,
+            stacklevel=3,
+        )
+        correction = False
+        note = f"not applied: fewer than {MIN_CORRECTION_YEARS} complete years"
+    when = np.full(n_years * n_seasons, np.nan)
+    when[slot] = years
+    when = when.reshape(n_years, n_seasons)
+
+    values = data.astype("float64")
+    if values.chunks is not None:
+        values = values.chunk({dim: -1})
+    slope, intercept, pvalue, n_valid = xr.apply_ufunc(
+        _seasonal_block_array,
+        values,
+        input_core_dims=[[dim]],
+        output_core_dims=[[], [], [], []],
+        kwargs={
+            "slot": slot,
+            "when": when,
+            "years": years,
+            "min_valid": min_valid,
+            "memory_mb": memory_mb,
+            "correction": correction,
+        },  # fmt: skip
+        dask="parallelized",
+        output_dtypes=[float, float, float, float],
+    )
+    first_date = str(data[dim].values[0])[:10]
+    slope_attrs, source_name, label = _slope_attrs(data, per)
+    return xr.Dataset(
+        {
+            "slope": _with_attrs(slope * _PER_YEARS[per], slope_attrs),
+            "intercept": _with_attrs(
+                intercept,
+                {
+                    "long_name": f"{label} at the reference time (seasonal Kendall intercept)",
+                    "units": data.attrs.get("units", ""),
+                    "reference_time": first_date,
+                },
+            ),
+            "pvalue": _with_attrs(
+                pvalue, {"long_name": "Seasonal Mann-Kendall p-value (two-sided)"}
+            ),
+            "significant": _with_attrs(pvalue < alpha, {"long_name": f"p < {alpha}"}),
+            "n_valid": _with_attrs(
+                n_valid.astype("int32"), {"long_name": "Number of valid observations"}
+            ),
+        },
+        attrs={
+            "method": "Seasonal Kendall slope, seasonal Mann-Kendall test (Hirsch et al. "
+            "1982; tie and continuity corrected)",
+            "seasonal": "month" if isinstance(seasonal, str) else "labels",
+            "seasons": int(n_seasons),
+            "seasonal_correction": note,
+            "autocorrelation": "not corrected",
+            "alpha": alpha,
+            "min_valid": min_valid,
+            "time_start": first_date,
+            "time_end": str(data[dim].values[-1])[:10],
+            "source_variable": source_name,
+        },
+    )
+
+
+def _seasonal_block_array(values, slot, when, years, min_valid, memory_mb, correction):
+    """Seasonal test on an array whose last axis is time, in memory-bounded blocks."""
+    shape = values.shape[:-1]
+    flat = values.reshape(-1, values.shape[-1])
+    n_years, n_seasons = when.shape
+    pairs = n_years * (n_years - 1) // 2
+    per_pixel = 8 * (4 * pairs * n_seasons + 2 * n_years * n_years + 4 * n_seasons**2)
+    block = max(1, int(memory_mb * 2**20 // per_pixel))
+    out = np.full((4, flat.shape[0]), np.nan)
+    for start in range(0, flat.shape[0], block):
+        out[:, start : start + block] = _seasonal_rows(
+            flat[start : start + block], slot, when, years, min_valid, correction
+        )
+    return tuple(part.reshape(shape) for part in out)
+
+
+def _seasonal_rows(y, slot, when, years, min_valid, correction) -> np.ndarray:
+    """Seasonal Kendall slope, S, variance (optionally Hirsch-Slack) and p for rows of y."""
+    n_valid = np.sum(~np.isnan(y), axis=1).astype("float64")
+    result = np.full((4, y.shape[0]), np.nan)
+    result[3] = n_valid
+    keep = n_valid >= min_valid
+    if not keep.any():
+        return result
+    rows = y[keep]
+    n_years, n_seasons = when.shape
+    grid = np.full((rows.shape[0], n_years * n_seasons), np.nan)
+    grid[:, slot] = rows
+    grid = grid.reshape(rows.shape[0], n_years, n_seasons)
+    valid = ~np.isnan(grid)
+    count = valid.sum(axis=1).astype("float64")  # values per season
+    used = count >= MIN_SEASON_VALUES
+
+    i, j = np.triu_indices(n_years, k=1)
+    dy = grid[:, j, :] - grid[:, i, :]  # (rows, pairs, seasons); NaN when a value is missing
+    dt = when[j, :] - when[i, :]
+    sign = np.where(np.isnan(dy), 0.0, np.sign(dy)) * used[:, None, :]
+    s = sign.sum(axis=(1, 2))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        slopes = np.where(used[:, None, :], dy / dt[None, :, :], np.nan)
+    slope = _row_median(slopes.reshape(rows.shape[0], -1))
+    intercept = np.nanmedian(rows - slope[:, None] * years[None, :], axis=1)
+
+    ties = np.stack([_tie_term(grid[:, :, g]) for g in range(n_seasons)], axis=1)
+    season_var = (count * (count - 1) * (2 * count + 5) - ties) / 18.0
+    variance = np.sum(np.where(used, season_var, 0.0), axis=1)
+    if correction:
+        # ranks within each season (ties averaged), missing values at the mean rank
+        diff = grid[:, :, None, :] - grid[:, None, :, :]
+        rank = (
+            count[:, None, :] + 1 + np.where(np.isnan(diff), 0.0, np.sign(diff)).sum(axis=2)
+        ) / 2
+        rank = np.where(valid, rank, (count[:, None, :] + 1) / 2)
+        k = np.einsum("rpg,rph->rgh", sign, sign)
+        g_sum = np.einsum("rig,rih->rgh", rank, rank)
+        gamma = (k + 4 * g_sum - n_years * (count[:, :, None] + 1) * (count[:, None, :] + 1)) / 3
+        both = used[:, :, None] & used[:, None, :]
+        variance = np.sum(np.where(both, gamma, 0.0), axis=(1, 2))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        z = np.where(variance > 0, (s - np.sign(s)) / np.sqrt(variance), 0.0)
+    result[0, keep] = slope
+    result[1, keep] = intercept
+    result[2, keep] = 2.0 * ndtr(-np.abs(z))
+    return result
 
 
 def _with_attrs(da: xr.DataArray, attrs: dict) -> xr.DataArray:

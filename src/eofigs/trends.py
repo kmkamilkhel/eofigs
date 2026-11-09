@@ -38,11 +38,6 @@ EXCLUDED_HATCH = "///"
 NO_DATA_HATCH = "xxx"
 #: False discovery rate methods for ``fdr=`` (Benjamini–Hochberg).
 FDR_METHODS = ("bh", None)
-#: Caption sentence on the per-pixel tests behind the significance marks (Wilks 2016).
-ASSUMPTIONS = (
-    "Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for "
-    "multiple comparisons."
-)
 DOT_SIZE_MM = 0.35
 #: Interquartile band of the profile: the light teal of terra_slate (drawn at 50 %).
 ENVELOPE_COLOUR = "#A8B7B6"
@@ -65,6 +60,8 @@ def trend_map(
     fdr_q: float | None = None,
     dim: str = "time",
     per: str = "decade",
+    seasonal: Any = None,
+    seasonal_correction: bool = True,
     variable: str | Variable | None = None,
     limits: str | float | None = "p98",
     stipple: str | None = "dots",
@@ -118,6 +115,11 @@ def trend_map(
         Time dimension of ``data``.
     per : {"decade", "year"}, default "decade"
         Unit of the slope computed from ``data``.
+    seasonal, seasonal_correction
+        Passed to :func:`eofigs.trend` with ``data``: ``seasonal="month"`` (or season
+        labels) for the seasonal Mann–Kendall test and seasonal Kendall slope, with the
+        Hirsch–Slack correction for correlation between seasons unless
+        ``seasonal_correction=False``. The caption names the test.
     variable : str or Variable, optional
         The variable (for example ``"ndvi"``) or its trend; sets the colours and the
         colour-bar label. By default it is recognised from the data.
@@ -195,7 +197,7 @@ def trend_map(
     q = check_fdr(fdr, fdr_q, alpha)
     if ax is not None and not isinstance(ax, GeoAxes):
         raise ValueError("ax must be a cartopy GeoAxes; or leave ax=None to create the map.")
-    grids = _grids(data, slope, pvalue, alpha, dim, per)
+    grids = _grids(data, slope, pvalue, alpha, dim, per, seasonal, seasonal_correction)
     var = _trend_variable(variable, grids.slope, per)
     excluded, threshold = _excluded(exclude, data, dim, var, grids.slope)
     valid = np.isfinite(grids.slope.values) & ~excluded
@@ -308,6 +310,7 @@ def trend_map(
         "extend": extend,
         **stats,
         "fdr": fdr_record,
+        "seasonal": grids.seasonal,
         "excluded_percent": round(100.0 * float(excluded.mean()), 2),
         "no_data_percent": round(100.0 * float(no_data.mean()), 2),
         "marks": marks,
@@ -333,6 +336,7 @@ class _Grids:
     significant: np.ndarray | None  # full-resolution bool, or None without p-values
     from_test: bool  # True when the p-values come from trend() (Mann–Kendall)
     pvalues: np.ndarray | None = None  # full-resolution p-values, or None
+    seasonal: dict | None = None  # the seasonal test of trend(), or None
 
 
 def check_fdr(fdr, fdr_q, alpha) -> float | None:
@@ -384,15 +388,25 @@ def _with_crs(da: Any, what: str) -> xr.DataArray:
     return da
 
 
-def _grids(data, slope, pvalue, alpha, dim, per) -> _Grids:
+def _grids(data, slope, pvalue, alpha, dim, per, seasonal=None, correction=True) -> _Grids:
     from eofigs.stats import trend
 
     if data is not None:
         data = _with_crs(data, "data")
-        result = trend(data, dim=dim, per=per, alpha=alpha)
+        result = trend(data, dim=dim, per=per, alpha=alpha, seasonal=seasonal,
+                       seasonal_correction=correction)  # fmt: skip
         sl = result.slope.rio.write_crs(data.rio.crs)
         significant = (result.pvalue.values < alpha) & np.isfinite(sl.values)
-        return _Grids(sl, significant, True, result.pvalue.values)
+        season = None
+        if result.attrs.get("seasonal", "none") != "none":
+            season = {"kind": result.attrs["seasonal"], "seasons": result.attrs["seasons"],
+                      "correction": result.attrs["seasonal_correction"]}  # fmt: skip
+        return _Grids(sl, significant, True, result.pvalue.values, season)
+    if not (seasonal is None or (isinstance(seasonal, str) and seasonal == "none")):
+        raise ValueError(
+            "seasonal applies to data= (the trend computed by eofigs); with slope= the test "
+            "behind the p-values is yours."
+        )
     sl = _with_crs(slope, "slope")
     if sl.ndim != 2:
         raise ValueError(f"slope must be a 2-D grid (got dimensions {sl.dims}).")
@@ -929,6 +943,23 @@ def _plain(units: str) -> str:
     return text.replace("$", "")
 
 
+def _test_wording(seasonal: dict | None) -> tuple[str, str]:
+    """Name of the per-pixel test and the start of its assumption sentence, for captions."""
+    if seasonal is None:
+        return "Mann–Kendall", "Per-pixel Mann–Kendall tests assume serial independence"
+    n = seasonal["seasons"]
+    years = "Per-pixel seasonal Mann–Kendall tests assume independence between years"
+    if seasonal["correction"] == "Hirsch-Slack 1984":
+        return (f"seasonal Mann–Kendall over {n} seasons with the Hirsch–Slack correction for "
+                "correlation between seasons", years)  # fmt: skip
+    if seasonal["correction"].startswith("not applied"):
+        name = (f"seasonal Mann–Kendall over {n} seasons without the Hirsch–Slack correction "
+                "(fewer than 10 complete years)")  # fmt: skip
+    else:
+        name = f"seasonal Mann–Kendall over {n} seasons, treated as independent"
+    return name, f"{years} and between seasons"
+
+
 def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profile, excluded,
              shown) -> str:  # fmt: skip
     units = _plain(var.units)
@@ -944,19 +975,20 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
     if record["marks"] or (grids.significant is not None and stipple is not None):
         res = abs(float(grids.slope.rio.resolution()[0]))
         size = f"{res:g} m" if grids.slope.rio.crs.is_projected else f"{res:g}°"
-        test = "Mann–Kendall, " if grids.from_test else ""
+        name, assumption = _test_wording(grids.seasonal)
+        test = f"{name}, " if grids.from_test else ""
         what = "Dots" if stipple == "dots" else "Hatching"
         fdr = record["fdr"]
         if fdr is None:
             parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels "
                          f"significant ({test}p < {alpha:g}).")  # fmt: skip
             if grids.from_test:
-                parts.append(ASSUMPTIONS)
+                parts.append(f"{assumption} and are not adjusted for multiple comparisons.")
             else:
                 parts.append(f"Significance from the supplied p-values (alpha = {alpha:g}); "
                              "eofigs applied no adjustment for multiple comparisons.")  # fmt: skip
         else:
-            source = "Mann–Kendall" if grids.from_test else "supplied p-values"
+            source = name if grids.from_test else "supplied p-values"
             rule = ("Benjamini–Hochberg false discovery rate control at q = "
                     f"{q_text(fdr['q'])} over {count(fdr['n_tests'])} pixels")  # fmt: skip
             if fdr["n_rejected"] == 0:
@@ -966,7 +998,7 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
                              f"significant ({source}, {rule}, equivalent to "
                              f"p ≤ {p_text(fdr['p_threshold'])}; Wilks 2016).")  # fmt: skip
             if grids.from_test:
-                parts.append("Per-pixel Mann–Kendall tests assume serial independence.")
+                parts.append(f"{assumption}.")
     share = record["excluded_percent"]
     if excluded.any():
         name = var.symbol.removesuffix(" trend")

@@ -310,11 +310,10 @@ def test_seasonal_matches_r(kind):
     assert plain.attrs["seasonal_correction"] == "none"
 
 
-def _loop_reference(values, years, seasons, n_years):
+def _loop_reference(values, years, year_index, seasons, n_years):
     """Seasonal S, variances and slope with plain loops (as in rkt; seasons < 4 values skipped)."""
     grid = np.full((n_years, seasons.max() + 1), np.nan)
     when = np.full_like(grid, np.nan)
-    year_index = np.floor(years).astype(int) - int(np.floor(years.min()))
     grid[year_index, seasons] = values
     when[year_index, seasons] = years
     used = [g for g in range(grid.shape[1]) if np.isfinite(grid[:, g]).sum() >= 4]
@@ -363,16 +362,18 @@ def test_seasonal_matches_loop_reference_with_gaps_and_ties():
     cube = xr.DataArray(values, dims=("pixel", "time"), coords={"time": q_time})
     result = trend(cube, per="year", seasonal=labels, min_valid=8)
     codes = np.unique(labels, return_inverse=True)[1]
+    year_index = q_time.year.to_numpy() - 2001
     for px in range(cube.sizes["pixel"]):
         v = values[px]
         ok = np.isfinite(v)
-        s, var, corrected, slope = _loop_reference(v[ok], 2001 + q_years[ok], codes[ok], 12)
+        s, var, corrected, slope = _loop_reference(v[ok], q_years[ok], year_index[ok],
+                                                   codes[ok], 12)  # fmt: skip
         assert float(result.slope[px]) == pytest.approx(slope, rel=1e-12)
         assert float(result.pvalue[px]) == pytest.approx(_z_p(s, corrected), rel=1e-9)
     plain = trend(cube, per="year", seasonal=labels, min_valid=8, seasonal_correction=False)
     v = values[0]
     ok = np.isfinite(v)
-    s, var, _, _ = _loop_reference(v[ok], 2001 + q_years[ok], codes[ok], 12)
+    s, var, _, _ = _loop_reference(v[ok], q_years[ok], year_index[ok], codes[ok], 12)
     assert float(plain.pvalue[0]) == pytest.approx(_z_p(s, var), rel=1e-9)
 
 
