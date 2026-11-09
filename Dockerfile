@@ -18,7 +18,7 @@ RUN apt-get update \
 USER $MAMBA_USER
 RUN micromamba install -y -n base -c conda-forge --override-channels \
         python=3.13 numpy pandas xarray scipy "matplotlib-base>=3.9" cartopy cmcrameri \
-        matplotlib-scalebar rioxarray geopandas shapely pyproj pip \
+        matplotlib-scalebar rioxarray geopandas shapely pyproj pypdf pip \
     && micromamba clean --all --yes
 
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
@@ -26,7 +26,7 @@ COPY --chown=$MAMBA_USER:$MAMBA_USER pyproject.toml README.md LICENSE /tmp/eofig
 COPY --chown=$MAMBA_USER:$MAMBA_USER src /tmp/eofigs/src
 RUN pip install --no-cache-dir --no-deps /tmp/eofigs \
     && rm -rf /tmp/eofigs \
-    && python -c "import eofigs, cartopy, rioxarray, geopandas, cmcrameri, matplotlib_scalebar; print('eofigs', eofigs.__version__)"
+    && python -c "import eofigs, cartopy, rioxarray, geopandas, cmcrameri, matplotlib_scalebar, pypdf; print('eofigs', eofigs.__version__)"
 
 WORKDIR /work
 CMD ["python"]

@@ -183,6 +183,36 @@ def test_pdf_with_unembedded_fonts_fails(tmp_path, sans_font):
     assert "not embedded" in font_result.message and "Helvetica" in font_result.message
 
 
+def test_pdf_fonts_inside_form_xobjects_are_checked(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, StreamObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(200, 100)
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                             NameObject("/Subtype"): NameObject("/Type1"),
+                             NameObject("/BaseFont"): NameObject("/Helvetica")})  # fmt: skip
+    form = StreamObject()
+    form.set_data(b"BT /F1 12 Tf 10 10 Td (Hi) Tj ET")
+    form.update({
+        NameObject("/Type"): NameObject("/XObject"),
+        NameObject("/Subtype"): NameObject("/Form"),
+        NameObject("/BBox"): ArrayObject([FloatObject(v) for v in (0, 0, 200, 100)]),
+        NameObject("/Resources"): DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+        ),
+    })  # fmt: skip
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/XObject"): DictionaryObject({NameObject("/Fm1"): writer._add_object(form)})}
+    )
+    with open(tmp_path / "form.pdf", "wb") as fh:
+        writer.write(fh)
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "form.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "fail" and "Helvetica" in font_result.message
+
+
 def test_pdf_that_cannot_be_read_is_not_passed(tmp_path, sans_font):
     fig, ax = _figure(sans_font)
     ax.set_xlabel("Time (yr)")
