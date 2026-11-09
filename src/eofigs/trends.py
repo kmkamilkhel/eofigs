@@ -35,6 +35,11 @@ DOT_COLOUR = TEXT_COLOUR
 #: Hatching on the grey of excluded ("not vegetated") and of no-data pixels.
 EXCLUDED_HATCH = "///"
 NO_DATA_HATCH = "xxx"
+#: Caption sentence on the per-pixel tests behind the significance marks (Wilks 2016).
+ASSUMPTIONS = (
+    "Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for "
+    "multiple comparisons."
+)
 DOT_SIZE_MM = 0.35
 #: Interquartile band of the profile: the light teal of terra_slate (drawn at 50 %).
 ENVELOPE_COLOUR = "#A8B7B6"
@@ -91,7 +96,9 @@ def trend_map(
         on it. Give either ``data`` or ``slope``.
     slope, pvalue : xarray.DataArray, optional
         A precomputed slope grid (with a CRS) and, optionally, its p-values on the same
-        grid. Without p-values no significance marks are drawn.
+        grid (same coordinates; dimensions in another order are transposed to the slope's,
+        and a p-value grid with a different CRS is refused). Without p-values no
+        significance marks are drawn.
     alpha : float, default 0.05
         Significance level.
     dim : str, default "time"
@@ -350,6 +357,13 @@ def _grids(data, slope, pvalue, alpha, dim, per) -> _Grids:
         return _Grids(sl, None, False)
     if not isinstance(pvalue, xr.DataArray):
         raise TypeError(f"pvalue must be an xarray DataArray (got {type(pvalue).__name__}).")
+    if pvalue.rio.crs is not None and pvalue.rio.crs != sl.rio.crs:
+        raise ValueError(
+            f"slope and pvalue have different CRS ({sl.rio.crs} and {pvalue.rio.crs}); "
+            "compute both with eofigs.trend or reproject one onto the other."
+        )
+    if set(pvalue.dims) == set(sl.dims) and pvalue.dims != sl.dims:
+        pvalue = pvalue.transpose(*sl.dims)
     same = pvalue.shape == sl.shape and all(
         d in pvalue.coords and np.allclose(pvalue[d].values, sl[d].values) for d in sl.dims
     )
@@ -852,6 +866,8 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
         what = "Dots" if stipple == "dots" else "Hatching"
         parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels significant "
                      f"({test}p < {alpha:g}).")  # fmt: skip
+        if grids.from_test:
+            parts.append(ASSUMPTIONS)
     share = record["excluded_percent"]
     if excluded.any():
         name = var.symbol.removesuffix(" trend")
