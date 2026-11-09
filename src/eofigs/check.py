@@ -739,12 +739,16 @@ _FONT_FILES = ("/FontFile", "/FontFile2", "/FontFile3")
 def _font_entries(path: Path) -> tuple[dict[str, str], tuple[float, ...] | None]:
     """Fonts used on the pages of a PDF, each "embedded", "type3" or "not embedded".
 
-    Reads the PDF structure (cross-reference tables and object streams) with pypdf and
-    follows every page's resources, including form XObjects and Type 3 glyph resources.
-    A font counts as embedded only when its descriptor carries the font program
-    (FontFile, FontFile2 or FontFile3). Returns the fonts and the first page's MediaBox.
-    Raises ValueError when the file cannot be read reliably.
+    Reads the PDF structure (cross-reference tables and object streams) with pypdf,
+    tolerantly (small deviations from the specification, common in files from other
+    tools, are repaired), and follows every page's resources, including form XObjects and
+    Type 3 glyph resources. A font counts as embedded only when its descriptor carries the
+    font program (FontFile, FontFile2 or FontFile3). Returns the fonts and the first
+    page's MediaBox. Raises ValueError when the font resources cannot be enumerated.
     """
+    import logging
+    import warnings
+
     from pypdf import PdfReader
     from pypdf.errors import PyPdfError
 
@@ -781,12 +785,20 @@ def _font_entries(path: Path) -> tuple[dict[str, str], tuple[float, ...] | None]
                 visit(xobject.get("/Resources"))
 
     try:
-        reader = PdfReader(path, strict=True)
-        box = None
-        for i, page in enumerate(reader.pages):
-            if i == 0:
-                box = tuple(float(v) for v in page.mediabox)
-            visit(page.get("/Resources"))
+        log = logging.getLogger("pypdf")
+        level = log.level
+        log.setLevel(logging.ERROR)  # repairs are logged as warnings; the result says enough
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                reader = PdfReader(path, strict=False)
+                box = None
+                for i, page in enumerate(reader.pages):
+                    if i == 0:
+                        box = tuple(float(v) for v in page.mediabox)
+                    visit(page.get("/Resources"))
+        finally:
+            log.setLevel(level)
     except (PyPdfError, KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
         raise ValueError(f"{type(exc).__name__}: {exc}") from exc
     return fonts, box
@@ -813,7 +825,7 @@ def _check_pdf(path: Path, preset: Journal) -> list[CheckResult]:
             CheckResult(
                 "fonts",
                 "warn",
-                f"Font embedding could not be verified: the PDF structure could not be read "
+                f"Font embedding could not be verified: the fonts of the PDF could not be read "
                 f"({reason}). Check the fonts in a PDF viewer (document properties).",
                 target,
             )

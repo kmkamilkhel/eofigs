@@ -20,6 +20,7 @@ dependencies:
   - pytest
   - pytest-cov
   - pytest-mpl
+  - fpdf2
   - ruff
   - pre-commit
   - python-build

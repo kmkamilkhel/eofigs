@@ -113,9 +113,9 @@ def accuracy_scatter(
     observed, predicted : array-like, pandas Series or xarray DataArray
         Paired values of the same shape; they are flattened, and pairs with a missing
         value in either are left out (and counted in the record). Two pandas objects are
-        paired by their index labels (``predicted`` is put in the order of ``observed``),
-        and two DataArrays by their coordinates (dimensions in the same order, then an
-        exact alignment); both raise an error when the labels do not match. Arrays, and a
+        paired by their index labels and two DataArrays by their coordinates (``predicted``
+        is put in the order of ``observed``, dimensions and labels); both raise an error
+        when the labels differ or repeat. Arrays, and a
         pandas object or DataArray together with an array, are paired by position.
     variable : str or Variable, optional
         The variable (for example ``"agb"``); sets the axis labels, units and the number
@@ -373,7 +373,25 @@ def _align(observed, predicted, groups):
                     "paired by their coordinates. Rename the dimensions, or pass .values to "
                     "pair the values by position."
                 )
-        aligned = [observed] + [other.transpose(*dims) for _, other in others]
+        aligned = [observed]
+        for name, other in others:
+            other = other.transpose(*dims)
+            for dim in dims:
+                if dim not in observed.indexes or dim not in other.indexes:
+                    continue
+                mine, theirs = observed.indexes[dim], other.indexes[dim]
+                if mine.equals(theirs):
+                    continue
+                problems = _label_problems(mine, theirs, "observed", name)
+                if problems:
+                    raise ValueError(
+                        f"observed and {name} are paired by their coordinates, which do not "
+                        f"match along {dim!r}: " + "; ".join(problems) + ". Put them on the "
+                        "same grid (for example with .interp_like or .rio.reproject_match), or "
+                        "pass .values to pair the values by position."
+                    )
+                other = other.reindex({dim: mine})  # same labels, another order
+            aligned.append(other)
         try:
             aligned = xr.align(*aligned, join="exact")
         except ValueError as exc:

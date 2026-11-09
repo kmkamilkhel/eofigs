@@ -343,9 +343,15 @@ def test_xarray_inputs_are_aligned_exactly(custom_style):
     layout = _layout(eofigs.accuracy_scatter(o, p.transpose("x", "y")))
     assert layout["stats"]["rmse"] == pytest.approx(reference["stats"]["rmse"], rel=1e-12)
     assert layout["pairing"] == "coordinates"
+    flipped = p.isel(y=slice(None, None, -1))  # same labels, another order: reordered
+    layout = _layout(eofigs.accuracy_scatter(o, flipped))
+    assert layout["stats"]["rmse"] == pytest.approx(reference["stats"]["rmse"], rel=1e-12)
     shifted = p.assign_coords(x=p.x + 1)
-    with pytest.raises(ValueError, match="coordinates"):
+    with pytest.raises(ValueError, match="1 label of observed is not in predicted"):
         eofigs.accuracy_scatter(o, shifted)
+    repeated = p.assign_coords(y=np.r_[np.arange(11.0), 0.0])
+    with pytest.raises(ValueError, match="duplicated label"):
+        eofigs.accuracy_scatter(o, repeated)
 
 
 def test_xarray_groups_and_dimension_names(custom_style):
@@ -360,6 +366,9 @@ def test_xarray_groups_and_dimension_names(custom_style):
     reference = _layout(eofigs.accuracy_scatter(o, p, groups=g))["groups"]
     layout = _layout(eofigs.accuracy_scatter(o, p, groups=g.transpose("x", "y")))["groups"]
     assert layout["north"]["rmse"] == pytest.approx(reference["north"]["rmse"], rel=1e-12)
+    flipped = g.isel(y=slice(None, None, -1))
+    layout = _layout(eofigs.accuracy_scatter(o, p, groups=flipped))["groups"]
+    assert layout["south"]["rmse"] == pytest.approx(reference["south"]["rmse"], rel=1e-12)
     renamed = p.rename({"y": "lat", "x": "lon"})
     with pytest.raises(ValueError, match="dimensions"):
         eofigs.accuracy_scatter(o, renamed)

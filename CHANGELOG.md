@@ -18,7 +18,7 @@ tests, and no new features.
 ### Fixed
 
 - `accuracy_scatter` pairs two pandas inputs by their index labels and two xarray
-  DataArrays by their coordinates (dimensions in the same order, then an exact alignment);
+  DataArrays by their coordinates (dimensions and labels put in the order of `observed`);
   `groups` given as a Series or DataArray follows the same alignment. Labels that are
   missing on one side or repeated raise a `ValueError` that counts them. Arrays, and one
   labelled input with one array, are still paired by position.
@@ -30,8 +30,9 @@ tests, and no new features.
 - The PDF font check passed files with fonts that are not embedded (for example the
   base-14 Helvetica written with `pdf.use14corefonts`). A font now passes only when its
   descriptor carries the font program (FontFile, FontFile2 or FontFile3); unembedded fonts
-  fail, and a PDF whose structure cannot be read gives a warning ("could not be verified")
-  instead of a pass. The PDF is read with pypdf, which handles compressed object streams.
+  fail, and a PDF whose fonts cannot be read gives a warning ("could not be verified")
+  instead of a pass. The PDF is read with pypdf, tolerantly (small defects common in files
+  from other tools are repaired), including compressed object streams.
 - `trend_map` accepts a p-value grid whose dimensions are in another order than the
   slope's (it is transposed), and refuses a p-value grid in another CRS with a clear error.
 
@@ -40,8 +41,10 @@ tests, and no new features.
 - Captions state the assumptions of the per-pixel tests behind the significance marks:
   `trend_map` "Per-pixel Mann–Kendall tests assume serial independence and are not
   adjusted for multiple comparisons." and `event_composite` "Per-pixel tests across events
-  are not adjusted for multiple comparisons." The trend map and event composite pages
-  explain both, with Wilks (2016).
+  are not adjusted for multiple comparisons." With p-values passed to `trend_map`, the
+  caption says "Significance from the supplied p-values (alpha = 0.05); eofigs applied no
+  adjustment for multiple comparisons." The trend map and event composite pages explain
+  both, with Wilks (2016).
 - New dependency: pypdf (BSD licence), for the PDF font check.
 - The README opens with four figures from the Swat valley data; the gallery introduction
   points to the ICESat-2 DEM validation as a real accuracy assessment.

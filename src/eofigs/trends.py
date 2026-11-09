@@ -868,6 +868,9 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
                      f"({test}p < {alpha:g}).")  # fmt: skip
         if grids.from_test:
             parts.append(ASSUMPTIONS)
+        else:
+            parts.append(f"Significance from the supplied p-values (alpha = {alpha:g}); eofigs "
+                         "applied no adjustment for multiple comparisons.")  # fmt: skip
     share = record["excluded_percent"]
     if excluded.any():
         name = var.symbol.removesuffix(" trend")

@@ -46,7 +46,7 @@ The statistics are only as good as the pairing of observed and predicted values.
 | Inputs | Paired by |
 |---|---|
 | two pandas Series (or DataFrames) | index labels: `predicted` is put in the order of `observed` |
-| two xarray DataArrays | coordinates: dimensions put in the same order, then an exact alignment |
+| two xarray DataArrays | coordinates: dimensions and labels put in the order of `observed` |
 | arrays, or one labelled input and one array | position |
 
 Labelled inputs whose labels do not match one to one (labels missing on one side, or

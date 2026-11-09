@@ -542,3 +542,11 @@ def test_caption_states_the_test_assumptions(custom_style):
     )
     no_marks = eofigs.trend_map(cube, stipple=None).eofigs_layout["caption"]
     assert "multiple comparisons" not in no_marks
+    slope = _grid(np.full((10, 10), 0.01))
+    supplied = eofigs.trend_map(slope=slope, pvalue=_grid(np.full((10, 10), 0.01)),
+                                variable="ndvi", alpha=0.1).eofigs_layout["caption"]  # fmt: skip
+    assert (
+        "Significance from the supplied p-values (alpha = 0.1); eofigs applied no adjustment "
+        "for multiple comparisons." in supplied
+    )
+    assert "Mann–Kendall" not in supplied

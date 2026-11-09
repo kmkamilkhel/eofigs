@@ -81,7 +81,9 @@ series) makes it reject too often. And with thousands of pixels tested at p < 0.
 5 % of the pixels without any trend are marked by chance. Requiring half of the pixels in a
 cell to be significant thins out isolated false positives, but it is not a correction for
 multiple testing: neighbouring pixels are correlated, so false positives come in patches.
-The caption says both. Wilks (2016) explains why maps of per-pixel significance overstate
+The caption says both. With your own p-values (`slope=`, `pvalue=`) eofigs does not know
+the test, so the caption says only what eofigs did: "Significance from the supplied p-values
+(alpha = 0.05); eofigs applied no adjustment for multiple comparisons." Wilks (2016) explains why maps of per-pixel significance overstate
 results and recommends controlling the false discovery rate instead; that option is planned
 for eofigs 0.2. Until then, read the dots as a guide to where trends are consistent, not as
 a field significance test.
