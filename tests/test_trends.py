@@ -555,12 +555,12 @@ def test_caption_states_the_test_assumptions(custom_style):
 # ----------------------------------------------------------------------------- false discovery rate
 
 
-def _trend_and_noise(seed=4):
-    """Left half: a real trend (tiny p-values); right half: no trend (uniform p-values)."""
+def _trend_and_noise(seed=4, columns=6):
+    """A real trend in the first columns (tiny p-values), no trend elsewhere (uniform p)."""
     rng = np.random.default_rng(seed)
     p = rng.uniform(0, 1, (40, 60))
-    p[:, :30] = rng.uniform(0, 1e-4, (40, 30))
-    slope = np.where(np.arange(60)[None, :] < 30, 0.02, rng.normal(0, 0.005, (40, 60)))
+    p[:, :columns] = rng.uniform(0, 1e-4, (40, columns))
+    slope = np.where(np.arange(60)[None, :] < columns, 0.02, rng.normal(0, 0.005, (40, 60)))
     return _grid(slope), _grid(p, name="pvalue")
 
 
@@ -568,13 +568,18 @@ def test_fdr_removes_most_false_positives(custom_style):
     slope, pvalue = _trend_and_noise()
     plain = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi").eofigs_layout
     fdr = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", fdr="bh").eofigs_layout
-    noise_share = float((pvalue.values[:, 30:] < 0.05).mean())
-    assert 0.03 < noise_share < 0.07  # about 5 % false positives without FDR
-    assert plain["significant_percent"] == pytest.approx(50 + 50 * noise_share, abs=0.01)
+    noise = pvalue.values[:, 6:]  # 2160 pixels without a trend
+    false_plain = int((noise < 0.05).sum())
+    assert 0.03 < false_plain / noise.size < 0.07  # about 5 % false positives without FDR
+    assert plain["significant_percent"] == pytest.approx(100 * (240 + false_plain) / 2400, abs=0.01)
     record = fdr["fdr"]
     assert record["method"] == "bh" and record["q"] == pytest.approx(0.10)
     assert record["n_tests"] == 2400
-    assert 1200 <= record["n_rejected"] < 1200 + 0.2 * 1200 * noise_share
+    false_fdr = int((noise <= record["p_threshold"]).sum())
+    assert record["n_rejected"] == 240 + false_fdr  # every true trend is kept
+    assert false_fdr < false_plain / 3
+    # BH bounds the expected false discovery proportion by q m0 / m = 0.09; one sample varies
+    assert false_fdr / record["n_rejected"] < 0.2
     assert record["p_threshold"] < 0.05
     assert fdr["significant_percent"] == pytest.approx(100 * record["n_rejected"] / 2400, abs=0.01)
     assert plain["fdr"] is None

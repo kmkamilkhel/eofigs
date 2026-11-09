@@ -20,6 +20,7 @@ from matplotlib.ticker import FuncFormatter
 from eofigs import maps
 from eofigs._colour import NO_DATA_COLOUR, SECONDARY_COLOUR, TEXT_COLOUR
 from eofigs._presets import get_journal, resolve_width
+from eofigs.stats import fdr_mask
 from eofigs.styling import _STATE, label_panels, round_ticks
 from eofigs.variables import Variable
 from eofigs.variables import variable as lookup_variable
@@ -35,6 +36,8 @@ DOT_COLOUR = TEXT_COLOUR
 #: Hatching on the grey of excluded ("not vegetated") and of no-data pixels.
 EXCLUDED_HATCH = "///"
 NO_DATA_HATCH = "xxx"
+#: False discovery rate methods for ``fdr=`` (Benjamini–Hochberg).
+FDR_METHODS = ("bh", None)
 #: Caption sentence on the per-pixel tests behind the significance marks (Wilks 2016).
 ASSUMPTIONS = (
     "Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for "
@@ -58,6 +61,8 @@ def trend_map(
     slope: xr.DataArray | None = None,
     pvalue: xr.DataArray | None = None,
     alpha: float = 0.05,
+    fdr: str | None = None,
+    fdr_q: float | None = None,
     dim: str = "time",
     per: str = "decade",
     variable: str | Variable | None = None,
@@ -100,7 +105,15 @@ def trend_map(
         and a p-value grid with a different CRS is refused). Without p-values no
         significance marks are drawn.
     alpha : float, default 0.05
-        Significance level.
+        Significance level of each pixel's test.
+    fdr : {"bh"} or None, default None
+        ``"bh"``: Benjamini–Hochberg false discovery rate control over the map's valid
+        pixels (finite slope and p-value, not excluded) before the marks are drawn, with
+        :func:`eofigs.stats.fdr_mask`. The family of tests is the grid passed in: to make
+        the study area the family, clip the data to it first.
+    fdr_q : float, optional
+        False discovery rate for ``fdr="bh"``; default ``2 * alpha`` (Wilks 2016, BAMS 97:
+        2263–2273, for spatially correlated fields).
     dim : str, default "time"
         Time dimension of ``data``.
     per : {"decade", "year"}, default "decade"
@@ -179,12 +192,18 @@ def trend_map(
     from cartopy.mpl.geoaxes import GeoAxes
 
     _check_arguments(data, slope, pvalue, stipple, sig_fraction, ax, subfigure, latitude_profile)
+    q = check_fdr(fdr, fdr_q, alpha)
     if ax is not None and not isinstance(ax, GeoAxes):
         raise ValueError("ax must be a cartopy GeoAxes; or leave ax=None to create the map.")
     grids = _grids(data, slope, pvalue, alpha, dim, per)
     var = _trend_variable(variable, grids.slope, per)
     excluded, threshold = _excluded(exclude, data, dim, var, grids.slope)
     valid = np.isfinite(grids.slope.values) & ~excluded
+    fdr_record = None
+    if q is not None and grids.pvalues is not None:
+        result = fdr_mask(grids.pvalues, q=q, valid=valid)
+        grids.significant = result.mask
+        fdr_record = fdr_entry(result, q)
     shown = grids.slope.where(valid)
     limit, rule = _limits(shown.values, limits)
     stats = _shares(shown.values, grids.significant, valid, limit)
@@ -209,7 +228,7 @@ def trend_map(
     small = maps._small_font()
     size = mpl.rcParams["font.size"]
     outline_label = aoi_label if aoi is not None else None
-    handles = _legend_handles(outline_label, grids, stipple, alpha, sig_fraction, excluded,
+    handles = _legend_handles(outline_label, grids, stipple, alpha, q, sig_fraction, excluded,
                               grids.slope, exclude_label)  # fmt: skip
     legend_mm = maps._legend_size(handles, small) if legend and handles else None
     spec = None
@@ -286,6 +305,7 @@ def trend_map(
         "limits_rule": rule,
         "extend": extend,
         **stats,
+        "fdr": fdr_record,
         "excluded_percent": round(100.0 * float(excluded.mean()), 2),
         "no_data_percent": round(100.0 * float(no_data.mean()), 2),
         "marks": marks,
@@ -310,6 +330,27 @@ class _Grids:
     slope: xr.DataArray
     significant: np.ndarray | None  # full-resolution bool, or None without p-values
     from_test: bool  # True when the p-values come from trend() (Mann–Kendall)
+    pvalues: np.ndarray | None = None  # full-resolution p-values, or None
+
+
+def check_fdr(fdr, fdr_q, alpha) -> float | None:
+    """Validate ``fdr`` and ``fdr_q``; return the false discovery rate q, or None."""
+    if fdr not in FDR_METHODS:
+        raise ValueError(f"fdr must be one of {FDR_METHODS} (got {fdr!r}).")
+    if fdr is None:
+        if fdr_q is not None:
+            raise ValueError("fdr_q needs fdr='bh'.")
+        return None
+    q = 2.0 * alpha if fdr_q is None else float(fdr_q)
+    if not 0 < q < 1:
+        raise ValueError(f"fdr_q must be between 0 and 1 (got {q:g}).")
+    return q
+
+
+def fdr_entry(result, q: float) -> dict[str, Any]:
+    """Describe a false discovery rate correction for ``fig.eofigs_layout``."""
+    return {"method": "bh", "q": q, "n_tests": result.n_tests,
+            "n_rejected": result.n_rejected, "p_threshold": result.p_threshold}  # fmt: skip
 
 
 def _check_arguments(data, slope, pvalue, stipple, sig_fraction, ax, subfigure, profile):
@@ -349,7 +390,7 @@ def _grids(data, slope, pvalue, alpha, dim, per) -> _Grids:
         result = trend(data, dim=dim, per=per, alpha=alpha)
         sl = result.slope.rio.write_crs(data.rio.crs)
         significant = (result.pvalue.values < alpha) & np.isfinite(sl.values)
-        return _Grids(sl, significant, True)
+        return _Grids(sl, significant, True, result.pvalue.values)
     sl = _with_crs(slope, "slope")
     if sl.ndim != 2:
         raise ValueError(f"slope must be a 2-D grid (got dimensions {sl.dims}).")
@@ -373,7 +414,7 @@ def _grids(data, slope, pvalue, alpha, dim, per) -> _Grids:
             "compute both with eofigs.trend or reproject one onto the other."
         )
     significant = (pvalue.values < alpha) & np.isfinite(sl.values)
-    return _Grids(sl, significant, False)
+    return _Grids(sl, significant, False, pvalue.values)
 
 
 def _trend_variable(variable, slope, per) -> Variable:
@@ -656,12 +697,18 @@ def _draw_marks(ax, significant, valid, slope, stipple, sig_fraction, spacing_mm
         return int((usable & (share >= sig_fraction - 1e-9)).sum()), round(float(cell_mm), 3)
 
 
-def _legend_handles(aoi_label, grids, stipple, alpha, sig_fraction, excluded, slope, label):
+def mark_label(alpha: float, q: float | None, sig_fraction: float) -> str:
+    """Legend text of the significance marks."""
+    rule = f"p < {alpha:g}" if q is None else f"FDR q = {q:g}"
+    return f"{rule} in ≥ {sig_fraction * 100:g} % of pixels"
+
+
+def _legend_handles(aoi_label, grids, stipple, alpha, q, sig_fraction, excluded, slope, label):
     handles = []
     if aoi_label is not None:
         handles.append(Line2D([], [], color=maps.AOI_COLOUR, linewidth=1.0, label=aoi_label))
     if grids.significant is not None and stipple is not None:
-        text = f"p < {alpha:g} in ≥ {sig_fraction * 100:g} % of pixels"
+        text = mark_label(alpha, q, sig_fraction)
         if stipple == "dots":
             handles.append(Line2D([], [], marker="o", linestyle="none", markersize=2.0,
                                   markerfacecolor=DOT_COLOUR, markeredgecolor="white",
@@ -841,6 +888,27 @@ def percent(value: float) -> str:
     return "<0.1" if 0 < value < 0.05 else f"{value:.1f}"
 
 
+def count(n: int) -> str:
+    """Format a count for a caption, with thin-space thousands from 10 000 ("41 233")."""
+    return f"{n:,}".replace(",", " ") if n >= 10_000 else str(n)
+
+
+def p_text(p: float) -> str:
+    """Format a p-value threshold with two significant digits ("0.012", "3.4 × 10⁻⁵").
+
+    Examples
+    --------
+    >>> from eofigs.trends import p_text
+    >>> p_text(0.01234), p_text(0.06), p_text(3.4e-05)
+    ('0.012', '0.06', '3.4 × 10⁻⁵')
+    """
+    text = f"{p:.2g}"
+    if "e" in text:
+        mantissa, exponent = text.split("e")
+        return f"{mantissa} × 10{str(int(exponent)).translate(_SUPERSCRIPT)}"
+    return text
+
+
 def _plain(units: str) -> str:
     """Mathtext units as plain text with Unicode superscripts ("decade$^{-1}$" -> "decade⁻¹")."""
     text = re.sub(r"\$\^\{([-0-9]+)\}\$", lambda m: m.group(1).translate(_SUPERSCRIPT), units)
@@ -864,13 +932,27 @@ def _caption(record, var, grids, stipple, sig_fraction, alpha, threshold, profil
         size = f"{res:g} m" if grids.slope.rio.crs.is_projected else f"{res:g}°"
         test = "Mann–Kendall, " if grids.from_test else ""
         what = "Dots" if stipple == "dots" else "Hatching"
-        parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels significant "
-                     f"({test}p < {alpha:g}).")  # fmt: skip
-        if grids.from_test:
-            parts.append(ASSUMPTIONS)
+        fdr = record["fdr"]
+        if fdr is None:
+            parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels "
+                         f"significant ({test}p < {alpha:g}).")  # fmt: skip
+            if grids.from_test:
+                parts.append(ASSUMPTIONS)
+            else:
+                parts.append(f"Significance from the supplied p-values (alpha = {alpha:g}); "
+                             "eofigs applied no adjustment for multiple comparisons.")  # fmt: skip
         else:
-            parts.append(f"Significance from the supplied p-values (alpha = {alpha:g}); eofigs "
-                         "applied no adjustment for multiple comparisons.")  # fmt: skip
+            source = "Mann–Kendall" if grids.from_test else "supplied p-values"
+            rule = (f"Benjamini–Hochberg false discovery rate control at q = {fdr['q']:g} over "
+                    f"{count(fdr['n_tests'])} pixels")  # fmt: skip
+            if fdr["n_rejected"] == 0:
+                parts.append(f"No pixel is significant after {rule} ({source}; Wilks 2016).")
+            else:
+                parts.append(f"{what}: at least {sig_fraction * 100:g} % of {size} pixels "
+                             f"significant ({source}, {rule}, equivalent to "
+                             f"p ≤ {p_text(fdr['p_threshold'])}; Wilks 2016).")  # fmt: skip
+            if grids.from_test:
+                parts.append("Per-pixel Mann–Kendall tests assume serial independence.")
     share = record["excluded_percent"]
     if excluded.any():
         name = var.symbol.removesuffix(" trend")

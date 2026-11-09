@@ -1,6 +1,8 @@
-"""Trend statistics: Theil–Sen slope and Mann–Kendall test on time-series cubes."""
+"""Trend statistics (Theil–Sen slope, Mann–Kendall test) and false discovery rate control."""
 
 from __future__ import annotations
+
+from typing import Any, NamedTuple
 
 import numpy as np
 import xarray as xr
@@ -137,6 +139,86 @@ def trend(
         },
     )
     return out
+
+
+class FdrResult(NamedTuple):
+    """Result of :func:`fdr_mask`."""
+
+    #: True where the test is significant after false discovery rate control (same shape
+    #: as the p-values; a DataArray for DataArray input).
+    mask: Any
+    #: Largest raw p-value among the significant tests (``p <= p_threshold`` is
+    #: significant), or None when no test is significant.
+    p_threshold: float | None
+    #: Number of tests in the family (finite p-values, within ``valid``).
+    n_tests: int
+    #: Number of significant tests.
+    n_rejected: int
+
+
+def fdr_mask(pvalues: Any, q: float = 0.10, valid: Any = None) -> FdrResult:
+    """Benjamini–Hochberg false discovery rate control over a field of p-values.
+
+    The family of tests is every finite p-value (within ``valid`` when given); NaN is
+    "not tested". A test is significant when its Benjamini–Hochberg adjusted p-value is
+    at most ``q`` (Benjamini and Hochberg 1995; computed with
+    ``scipy.stats.false_discovery_control``). For spatially correlated fields Wilks (2016,
+    BAMS 97: 2263–2273) recommends ``q = 2 × alpha``, for example 0.10 for a field test at
+    0.05.
+
+    Parameters
+    ----------
+    pvalues : array-like or xarray.DataArray
+        P-values of any shape.
+    q : float, default 0.10
+        False discovery rate, in (0, 1).
+    valid : array-like of bool, optional
+        Pixels that belong to the family of tests (same shape as ``pvalues``); others are
+        not tested.
+
+    Returns
+    -------
+    FdrResult
+        ``mask`` (same shape as ``pvalues``), ``p_threshold`` (the equivalent per-test
+        p-value, or None), ``n_tests`` and ``n_rejected``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from eofigs.stats import fdr_mask
+    >>> p = np.array([0.001, 0.008, 0.039, 0.041, 0.042, 0.06, 0.074, 0.205, 0.212, 0.216])
+    >>> result = fdr_mask(p, q=0.10)
+    >>> result.n_rejected, result.p_threshold
+    (6, 0.06)
+    """
+    from scipy.stats import false_discovery_control
+
+    if not 0 < q < 1:
+        raise ValueError(f"q must be between 0 and 1 (got {q}).")
+    values = np.asarray(pvalues.values if isinstance(pvalues, xr.DataArray) else pvalues,
+                        dtype="float64")  # fmt: skip
+    tested = np.isfinite(values)
+    if valid is not None:
+        valid = np.asarray(valid.values if isinstance(valid, xr.DataArray) else valid, bool)
+        if valid.shape != values.shape:
+            raise ValueError(
+                f"valid has shape {valid.shape}; the p-values have shape {values.shape}."
+            )
+        tested &= valid
+    p = values[tested]
+    if p.size and (p.min() < 0 or p.max() > 1):
+        raise ValueError("p-values must be between 0 and 1.")
+    mask = np.zeros(values.shape, bool)
+    threshold = None
+    if p.size:
+        rejected = false_discovery_control(p, method="bh") <= q
+        mask[tested] = rejected
+        if rejected.any():
+            threshold = float(p[rejected].max())
+    n_rejected = int(mask.sum())
+    if isinstance(pvalues, xr.DataArray):
+        mask = xr.DataArray(mask, coords=pvalues.coords, dims=pvalues.dims, name="significant")
+    return FdrResult(mask, threshold, int(p.size), n_rejected)
 
 
 def _with_attrs(da: xr.DataArray, attrs: dict) -> xr.DataArray:

@@ -18,6 +18,7 @@ from matplotlib.patches import Patch
 from eofigs import maps, trends
 from eofigs._colour import NO_DATA_COLOUR, SECONDARY_COLOUR, TEXT_COLOUR
 from eofigs._presets import get_journal, resolve_width
+from eofigs.stats import fdr_mask
 from eofigs.styling import (
     _STATE,
     current_panel_titles,
@@ -88,6 +89,8 @@ def event_composite(
     series: bool = True,
     event_rule: str | None = None,
     alpha: float = 0.05,
+    fdr: str | None = None,
+    fdr_q: float | None = None,
     sig_fraction: float = 0.5,
     dot_spacing_mm: float = 1.6,
     stipple: str | None = "dots",
@@ -160,6 +163,10 @@ def event_composite(
         How the events were chosen, for the caption sentence.
     alpha, sig_fraction, dot_spacing_mm, stipple, limits, exclude, exclude_label
         As in :func:`trend_map`; the colour limits are shared by all phase maps.
+    fdr, fdr_q
+        As in :func:`trend_map`: ``fdr="bh"`` applies Benjamini–Hochberg false discovery
+        rate control at ``fdr_q`` (default ``2 * alpha``) separately to each map, over its
+        valid pixels.
     aoi : GeoDataFrame, GeoSeries or path, optional
         Study area outline: drawn on each map, and the area the series averages over.
     aoi_label : str, default "Study area"
@@ -212,6 +219,7 @@ def event_composite(
     3
     """
     _check_arguments(window, kind, climatology, detrend, test, maps, stipple, ax)
+    trends.check_fdr(fdr, fdr_q, alpha)
     data = trends._with_crs(data, "data")
     if "time" not in data.dims or not np.issubdtype(data["time"].dtype, np.datetime64):
         raise ValueError("data needs a datetime 'time' dimension (for example monthly steps).")
@@ -626,12 +634,12 @@ def _draw(
     footprint = np.isfinite(data.values).any(axis=data.get_axis_num("time"))
     no_data = ~np.isfinite(stack).all(axis=0) & ~excluded & footprint
     tested = any(composite.pvalues[p] is not None for p in phases) and o["stipple"] is not None
+    q = trends.check_fdr(o["fdr"], o["fdr_q"], o["alpha"])
     handles = _legend_handles(
         aoi_label if aoi is not None else None,
         tested,
         o["stipple"],
-        o["alpha"],
-        o["sig_fraction"],
+        trends.mark_label(o["alpha"], q, o["sig_fraction"]),
         excluded,
         no_data,
         o["exclude_label"],
@@ -694,9 +702,13 @@ def _draw(
             trends._draw_grey(ax, grey, hatch, crs, extent, map_w, map_h, dpi, projection)
         valid = np.isfinite(shown.values) & valid_base
         p = composite.pvalues[phase]
-        marks, cell, significant_percent = 0, None, None
+        marks, cell, significant_percent, fdr_record = 0, None, None, None
         if p is not None:
             significant = (p < o["alpha"]) & valid
+            if q is not None:  # one correction per map, over its valid pixels
+                result = fdr_mask(p, q=q, valid=valid)
+                significant = result.mask
+                fdr_record = trends.fdr_entry(result, q)
             significant_percent = round(
                 100.0 * float(significant.sum()) / max(int(valid.sum()), 1), 2
             )
@@ -732,6 +744,7 @@ def _draw(
         map_axes.append(ax)
         record_phases[phase] = {
             "significant_percent": significant_percent,
+            "fdr": fdr_record,
             "marks": marks,
             "mark_cell_mm": cell,
             "no_data_percent": round(
@@ -854,14 +867,11 @@ def _furniture(ax, projection, extent, aoi_map, map_w, map_h, size, o) -> None:
     maps._draw_furniture(ax, item, choice, map_w, map_h, o["north_arrow"], o["scale_bar"])
 
 
-def _legend_handles(
-    aoi_label, tested, stipple, alpha, sig_fraction, excluded, no_data, label, test
-):
+def _legend_handles(aoi_label, tested, stipple, text, excluded, no_data, label, test):
     handles = []
     if aoi_label is not None:
         handles.append(Line2D([], [], color=maps.AOI_COLOUR, linewidth=1.0, label=aoi_label))
     if tested:
-        text = f"p < {alpha:g} in ≥ {sig_fraction * 100:g} % of pixels"
         if stipple == "dots":
             handles.append(
                 Line2D(
@@ -1038,11 +1048,33 @@ def _caption(record, used, var, grid, times, o, threshold, tested, labels=None) 
     if tested:
         name = "t-test" if o["test"] == "ttest" else "Wilcoxon signed-rank test"
         what = "Dots" if o["stipple"] == "dots" else "Hatching"
-        parts.append(
-            f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
-            f"significant ({name} across {n} events, p < {o['alpha']:g})."
-        )
-        parts.append(ASSUMPTIONS)
+        corrections = [r["fdr"] for r in record["phases"].values() if r.get("fdr")]
+        if not corrections:
+            parts.append(
+                f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
+                f"significant ({name} across {n} events, p < {o['alpha']:g})."
+            )
+            parts.append(ASSUMPTIONS)
+        else:
+            q = corrections[0]["q"]
+            fdrs = {ph: r["fdr"] for ph, r in record["phases"].items() if r.get("fdr")}
+            found = [f"p ≤ {trends.p_text(f['p_threshold'])} ({ph})"
+                     for ph, f in fdrs.items() if f["p_threshold"] is not None]  # fmt: skip
+            empty = [ph for ph, f in fdrs.items() if f["p_threshold"] is None]
+            clauses = []
+            if found:
+                joined = ", ".join(found[:-1]) + (" and " if len(found) > 1 else "") + found[-1]
+                clauses.append(f"equivalent to {joined}")
+            if empty:
+                joined = ", ".join(empty[:-1]) + (" or " if len(empty) > 1 else "") + empty[-1]
+                clauses.append(f"no pixel significant {joined}")
+            parts.append(
+                f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
+                f"significant ({name} across {n} events; Benjamini–Hochberg false discovery "
+                f"rate control at q = {q:g}, applied separately to each map; "
+                + "; ".join(clauses)
+                + "; Wilks 2016)."
+            )
         if n < LOW_POWER_EVENTS:
             parts.append(
                 f"With only {n} events the test has low power; absence of "
