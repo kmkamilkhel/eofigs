@@ -53,6 +53,10 @@ fig = eofigs.event_composite(
     aoi_label="Swat valley\n(pre-2026 district boundary)",
 )
 
+
+# README card: the three maps, the colour bar and the legend
+readme_card = [*fig.axes[:4], *fig.legends]
+
 if __name__ == "__main__":
     print(fig.eofigs_layout["caption"])
     print(eofigs.save_figure(fig, "event_composite_swat"))

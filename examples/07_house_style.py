@@ -86,6 +86,11 @@ with eofigs.style(journal="custom", font="Arial", bold=True, labels="A", max_tic
 
 figures = {"Package default": default, "House style in one call": house}
 
+
+# README card: both panels of the house-style figure, with their bold letters, the legend and
+# the colour bar
+readme_card = [*house.axes, *house.subfigs[0].legends]
+
 if __name__ == "__main__":
     eofigs.save_figure(default, "swat_default")
     eofigs.save_figure(house, "swat_house_style")

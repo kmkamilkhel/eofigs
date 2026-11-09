@@ -56,6 +56,13 @@ eofigs.trend_map(cube, subfigure=panels[1], **common)  # (b) p < 0.05 per pixel
 eofigs.trend_map(cube, subfigure=panels[2], fdr="bh", **common)  # (c) FDR at q = 0.10
 eofigs.label_panels([panel.axes[0] for panel in panels])
 
+
+# README card: the edge of the disc and the noise beside it, in (b) and (c)
+readme_card = [
+    {"items": [(panel.axes[0], (0.30, 0.07, 0.75, 0.93))], "label": label}
+    for panel, label in ((panels[1], "p < 0.05"), (panels[2], "FDR q = 0.10"))
+]
+
 if __name__ == "__main__":
     p = eofigs.trend(cube).pvalue.values
     for name, marked in (("p < 0.05", p < 0.05), ("FDR q = 0.10", fdr_mask(p, q=0.10).mask)):

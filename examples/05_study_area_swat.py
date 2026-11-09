@@ -33,6 +33,10 @@ fig = eofigs.study_area_map(
     width="onehalf",
 )
 
+
+# README card: the upper valley with the towns, the locator inset and the legend
+readme_card = [(fig.axes[0], (0.0, 0.45, 1.0, 1.0)), fig.axes[1], *fig.legends]
+
 if __name__ == "__main__":
     print(fig.eofigs_layout)
     print(eofigs.save_figure(fig, "study_area_swat"))

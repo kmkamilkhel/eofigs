@@ -92,6 +92,10 @@ classes.legend(
 )  # fmt: skip
 eofigs.label_panels([classes], ["(b)"])
 
+
+# README card: panel (b), the errors by slope class
+readme_card = [classes]
+
 if __name__ == "__main__":
     print(scatter.eofigs_layout["caption"])
     print(by_class.round(2))
