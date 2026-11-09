@@ -256,6 +256,24 @@ def test_auto_exclusion_of_bare_pixels(custom_style):
     assert eofigs.trend_map(temperature).eofigs_layout["excluded_percent"] == 0.0
 
 
+def test_pixels_without_any_value_lie_outside_the_data(custom_style):
+    cube = _cube(np.full((20, 20), 0.01), noise=0.002)
+    cube[:, :, :8] = np.nan  # no value at any step: outside the data (160 pixels)
+    cube[3:, 10, 10] = np.nan  # three values only: no valid trend (1 pixel)
+    fig = eofigs.trend_map(cube, exclude=None)
+    layout = fig.eofigs_layout
+    assert layout["no_data_percent"] == pytest.approx(100 / 240, abs=0.01)  # of 240 in the data
+    assert "(too few observations; 0.4 % of pixels)" in layout["caption"]
+    assert sum(c.get_hatch() == trends.NO_DATA_HATCH for c in fig.axes[0].collections) == 1
+    full = _cube(np.full((20, 20), 0.01), noise=0.002)
+    full[:, :, :8] = np.nan
+    clean = eofigs.trend_map(full, exclude=None)
+    assert clean.eofigs_layout["no_data_percent"] == 0.0
+    labels = [t.get_text() for leg in clean.legends for t in leg.get_texts()]
+    assert not any(label.startswith("No valid trend") for label in labels)
+    assert not any(c.get_hatch() == trends.NO_DATA_HATCH for c in clean.axes[0].collections)
+
+
 def test_two_masked_classes_are_told_apart(custom_style):
     values = np.full((20, 20), 0.01)
     values[0, :] = np.nan  # 5 % without data
@@ -657,3 +675,75 @@ def test_fdr_with_supplied_pvalues_and_no_rejection(custom_style):
         "No pixel is significant after Benjamini–Hochberg false discovery rate control at "
         "q = 0.10 over 2400 pixels (supplied p-values; Wilks 2016)." in none["caption"]
     )
+
+
+# ---------------------------------------------------------------------------- seasonal Mann-Kendall
+
+
+def _monthly_cube(years=12, rows=12, cols=12, slope_per_year=0.004, seed=8):
+    rng = np.random.default_rng(seed)
+    time = pd.date_range("2001-01-01", periods=12 * years, freq="MS") + pd.Timedelta(days=14)
+    t = (time - time[0]).days.to_numpy() / 365.2425
+    cycle = 0.25 * np.sin(2 * np.pi * (time.month.to_numpy() - 1) / 12)
+    values = 0.5 + cycle[:, None, None] + slope_per_year * t[:, None, None]
+    values = values + rng.normal(0, 0.02, (time.size, rows, cols))
+    grid = _grid(np.zeros((rows, cols)))
+    cube = xr.DataArray(values, dims=("time", "y", "x"),
+                        coords={"time": time, "y": grid.y, "x": grid.x}, name="ndvi")  # fmt: skip
+    cube.attrs = {"long_name": "NDVI", "units": "1"}
+    return cube.rio.write_crs(UTM)
+
+
+def test_seasonal_trend_map_record_and_caption(custom_style):
+    layout = eofigs.trend_map(_monthly_cube(), seasonal="month").eofigs_layout
+    assert layout["seasonal"] == {"kind": "month", "seasons": 12,
+                                  "correction": "Hirsch-Slack 1984"}  # fmt: skip
+    caption = layout["caption"]
+    assert (
+        "(seasonal Mann–Kendall over 12 seasons with the Hirsch–Slack correction for "
+        "correlation between seasons, p < 0.05)." in caption
+    )
+    assert (
+        "Per-pixel seasonal Mann–Kendall tests assume independence between years and are not "
+        "adjusted for multiple comparisons." in caption
+    )
+    off = eofigs.trend_map(_monthly_cube(), seasonal="month",
+                           seasonal_correction=False).eofigs_layout  # fmt: skip
+    assert off["seasonal"]["correction"] == "none"
+    assert (
+        "(seasonal Mann–Kendall over 12 seasons, treated as independent, p < 0.05)."
+        in (off["caption"])
+    )
+    assert "assume independence between years and between seasons" in off["caption"]
+
+
+def test_seasonal_trend_map_short_record_and_fdr(custom_style):
+    with pytest.warns(eofigs.stats.TrendWarning, match="10 complete years"):
+        short = eofigs.trend_map(_monthly_cube(years=9), seasonal="month").eofigs_layout
+    assert short["seasonal"]["correction"].startswith("not applied")
+    assert (
+        "seasonal Mann–Kendall over 12 seasons without the Hirsch–Slack correction (fewer "
+        "than 10 complete years)" in short["caption"]
+    )
+    fdr = eofigs.trend_map(_monthly_cube(), seasonal="month", fdr="bh").eofigs_layout
+    assert (
+        "(seasonal Mann–Kendall over 12 seasons with the Hirsch–Slack correction for "
+        "correlation between seasons, Benjamini–Hochberg false discovery rate control"
+        in (fdr["caption"])
+    )
+    assert (
+        "Per-pixel seasonal Mann–Kendall tests assume independence between years."
+        in (fdr["caption"])
+    )
+
+
+def test_monthly_data_without_seasonal_warns_and_annual_does_not(custom_style):
+    with pytest.warns(eofigs.stats.TrendWarning, match='seasonal="month"'):
+        eofigs.trend_map(_monthly_cube())
+    quiet = eofigs.trend_map(_monthly_cube(), seasonal="none").eofigs_layout
+    assert quiet["seasonal"] is None
+    annual = eofigs.trend_map(_cube(np.full((8, 8), 0.01), noise=0.002)).eofigs_layout
+    assert annual["seasonal"] is None
+    slope = _grid(np.full((8, 8), 0.01))
+    with pytest.raises(ValueError, match="seasonal applies to data="):
+        eofigs.trend_map(slope=slope, variable="ndvi", seasonal="month")

@@ -8,8 +8,8 @@ terracotta and greening slate teal. Colours are limited to ±0.08 decade⁻¹ (9
 percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
 significant (Mann–Kendall, p < 0.05). Per-pixel Mann–Kendall tests assume serial
 independence and are not adjusted for multiple comparisons. Grey with diagonal hatching:
-mean NDVI below 0.1 over the record (not vegetated; 14.8 % of pixels). Grey with
-cross-hatching: no valid trend (too few observations; 0.8 % of pixels). The caption
+mean NDVI below 0.1 over the record (not vegetated; 14.9 % of the pixels with data); every
+pixel with data has a valid trend, and pixels without data are left white. The caption
 sentences on colour limits, dots, test assumptions and grey come from
 `fig.eofigs_layout["caption"]`. Browning runs along the valley floor from Mingora to
 Bahrain; greening is widespread and strongest in the lower valley. MODIS data: NASA LP
