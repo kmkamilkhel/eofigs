@@ -24,8 +24,7 @@ Theil–Sen trend of growing-season NDVI (MODIS MOD13A1, 500 m, May–September 
 percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
 significant (Mann–Kendall, p < 0.05). Per-pixel Mann–Kendall tests assume serial
 independence and are not adjusted for multiple comparisons. Grey with diagonal hatching:
-mean NDVI below 0.1 over the record (not vegetated; 14.8 % of pixels). Grey with cross-hatching: no valid trend (too
-few observations; 0.8 % of pixels). Boundaries and names shown do not imply any opinion on the
+mean NDVI below 0.1 over the record (not vegetated; 14.9 % of pixels). Boundaries and names shown do not imply any opinion on the
 legal status of any country or territory. Full code and downloads:
 [gallery](gallery/trend_map_swat.md).
 
@@ -52,7 +51,8 @@ legal status of any country or territory. Full code and downloads:
    - **no valid trend** (cross-hatching): too few valid observations.
 
    Each class has its own legend entry and caption clause with its share of pixels, and is
-   left out when it has none.
+   left out when it has none. Pixels without any value in `data` lie outside the data: they
+   stay white and are not counted in the shares.
 
 ## The caption sentence
 
@@ -64,9 +64,8 @@ fig.eofigs_layout["caption"]
 # 'Colours are limited to ±0.08 decade⁻¹ (98th percentile of |slope|); 1.9 % of pixels
 #  exceed this. Dots: at least 50 % of 500 m pixels significant (Mann–Kendall, p < 0.05).
 #  Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for
-#  multiple comparisons. Grey with diagonal hatching: mean NDVI below 0.1 over the record (not vegetated; 14.8 %
-#  of pixels). Grey with cross-hatching: no valid trend (too few observations; 0.8 % of
-#  pixels).'
+#  multiple comparisons. Grey with diagonal hatching: mean NDVI below 0.1 over the record
+#  (not vegetated; 14.9 % of pixels).'
 ```
 
 `fig.eofigs_layout` also records the limits, the clipped share, the share of significant
@@ -170,7 +169,8 @@ fewer than 20 pixels are skipped. The bands line up with the map.
 
 | Argument | Use |
 |---|---|
-| `data` | a time-series cube (`time`, `y`, `x`) with a CRS; `trend` is run on it |
+| `data` | a time-series cube (`time`, `y`, `x`) with a CRS; `trend` is run on it; pixels without any value lie outside the data and stay white |
+| `seasonal`, `seasonal_correction` | seasonal Mann–Kendall test for monthly or other sub-annual data (see [Seasonal data](trends.md#seasonal-data)) |
 | `slope`, `pvalue` | precomputed grids on the same grid and CRS (dimension order may differ); without `pvalue` there are no marks |
 | `alpha`, `sig_fraction`, `dot_spacing_mm`, `stipple` | the significance rule and its marks |
 | `fdr`, `fdr_q` | Benjamini–Hochberg false discovery rate control of the marks (off by default) |

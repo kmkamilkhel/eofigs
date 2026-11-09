@@ -44,9 +44,56 @@ zero-centred colours.
 - **Mann–Kendall** test (Mann 1945; Kendall 1975) with the tie correction of the variance and
   the continuity correction of Z.
 - **Assumptions:** observations are treated as serially independent; no correction for
-  autocorrelation (modified Mann–Kendall, prewhitening) and no seasonal test are applied in
-  this version. Deseasonalise or aggregate monthly data to annual values first; a seasonal
-  Mann–Kendall test is planned for v0.2.
+  autocorrelation (modified Mann–Kendall, prewhitening) is applied. For monthly or other
+  sub-annual data use the seasonal test below, or aggregate to annual values first.
+
+## Seasonal data
+
+A seasonal cycle distorts the plain Mann–Kendall test and the Theil–Sen slope of monthly
+data: most pairs of values compare different times of the year. `seasonal="month"` uses the
+seasonal Mann–Kendall test and the seasonal Kendall slope (Hirsch et al. 1982) instead: each
+month is compared only with the same month in other years, and the statistics are summed
+over the months.
+
+```python
+result = eofigs.trend(monthly_ndvi, seasonal="month")  # 12 calendar months
+growing = monthly_ndvi.sel(time=monthly_ndvi.time.dt.month.isin([5, 6, 7, 8, 9]))
+result = eofigs.trend(growing, seasonal="month")  # May to September only: 5 seasons
+result.attrs["seasonal_correction"]  # 'Hirsch-Slack 1984'
+```
+
+- **Seasons:** `"month"` (the calendar month of each date), or an array with one label per
+  time step for other periods. For 16- or 8-day composites, label each value by its
+  composite, for example its day of year: `seasonal=composites.time.dt.dayofyear.values`.
+  Each season may have one value per calendar year; more than one raises an error that
+  names the season and year (resample, for example to monthly means, or use finer labels).
+  Seasons with fewer than 4 values in a pixel are left out of its test, as in the R package
+  rkt.
+- **Correlation between seasons:** values of consecutive months of one year usually move
+  together, which makes the seasonal test too willing to find a trend. By default the
+  variance of the test statistic includes the covariances between seasons (Hirsch and Slack
+  1984; the same computation as `rkt(..., correct = TRUE)`). The correction needs at least
+  10 complete years; with fewer, the uncorrected test is used with a `TrendWarning`, and
+  `trend_map`'s caption says so. `seasonal_correction=False` treats the seasons as
+  independent.
+- **Without `seasonal`**, sub-annual data (median step under 300 days) get a `TrendWarning`
+  suggesting `seasonal="month"`; `seasonal="none"` keeps the plain test and states the
+  choice.
+- **Checked against R:** the tests compare S, the variances with and without the
+  correction, the p-values and the slope with `trend::smk.test`, `trend::csmk.test`,
+  `trend::sea.sens.slope` and `rkt::rkt` (script: `docs/scripts/seasonal_mk_reference.R`).
+
+The [seasonal trend map](gallery/seasonal_trend_swat.md) of Swat monthly NDVI shows the
+effect of the correction: 59.6 % of the vegetated pixels are significant with it, 63.4 %
+without.
+
+Hirsch, R. M., Slack, J. R., & Smith, R. A. (1982). Techniques of trend analysis for monthly
+water quality data. *Water Resources Research*, 18(1), 107–121.
+[doi:10.1029/WR018i001p00107](https://doi.org/10.1029/WR018i001p00107)
+
+Hirsch, R. M., & Slack, J. R. (1984). A nonparametric trend test for seasonal data with
+serial dependence. *Water Resources Research*, 20(6), 727–732.
+[doi:10.1029/WR020i006p00727](https://doi.org/10.1029/WR020i006p00727)
 
 ## Memory and time
 

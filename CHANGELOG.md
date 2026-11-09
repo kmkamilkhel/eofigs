@@ -17,11 +17,25 @@ drawn again.
   the method, q, the number of tests, the number significant and the equivalent p
   threshold; the legend and the caption say what was applied. Off by default.
 - `eofigs.stats.fdr_mask`: the same correction for any array of p-values.
+- `trend(..., seasonal="month")` (or season labels): seasonal Mann–Kendall test and seasonal
+  Kendall slope (Hirsch et al. 1982) for monthly and other sub-annual data, with the
+  Hirsch–Slack (1984) correction for correlation between seasons by default
+  (`seasonal_correction`; at least 10 complete years). `trend_map` passes `seasonal` on,
+  records it and names the test in the caption. Results match the R packages trend and rkt.
+- `TrendWarning` for sub-annual data without `seasonal` (`seasonal="none"` keeps the plain
+  test without the warning) and for records too short for the correction.
 - Gallery: a synthetic field with a known trend, marked at p < 0.05 and with false
   discovery rate control; the trend map page compares both on the Swat NDVI series.
+- Gallery: the seasonal trend of Swat monthly NDVI, May to September, with the shares of
+  significant pixels with and without the Hirsch–Slack correction.
 
 ### Fixed
 
+- `trend_map` with `data=`: pixels without any value lie outside the data. They are left
+  white and not counted, as in `event_composite`; before, they were drawn as "no valid trend
+  (too few observations)" and counted in the shares (in the Swat trend map, 0.8 % of the
+  pixels were labelled so; none has too few observations).
+  **Affects existing figures: re-render.**
 - `trend_map` drawn into a subfigure leaves room above the map for a panel letter when panel
   labels are on, as `study_area_map` does; the letters were cut off at the top.
   **Affects existing figures: re-render.**

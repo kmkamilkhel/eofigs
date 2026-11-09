@@ -52,6 +52,8 @@
 
 ::: eofigs.stats.FdrResult
 
+::: eofigs.stats.TrendWarning
+
 ## Event composites
 
 ::: eofigs.event_composite

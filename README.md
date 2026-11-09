@@ -58,7 +58,7 @@ journal-ready figures that know the analysis, the variable and the printed size:
 <tr>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_synthetic.png" alt="Accuracy scatter: calibration and validation"></a><br><b>Accuracy scatter: calibration and validation</b></td>
 <td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/fdr_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/fdr_synthetic.png" alt="Significance with false discovery rate control"></a><br><b>Significance with false discovery rate control</b></td>
-<td width="33%"></td>
+<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/seasonal_trend_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/seasonal_trend_swat.png" alt="Seasonal trend map: Swat valley monthly NDVI"></a><br><b>Seasonal trend map: Swat valley monthly NDVI</b></td>
 </tr>
 </table>
 
