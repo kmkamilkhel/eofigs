@@ -8,24 +8,25 @@ Zenodo, which gives it two kinds of DOI:
 | DOI | Refers to | Use it |
 |---|---|---|
 | [10.5281/zenodo.24053760](https://doi.org/10.5281/zenodo.24053760) | all versions (always resolves to the newest release) | to refer to eofigs in general |
-| [10.5281/zenodo.24053761](https://doi.org/10.5281/zenodo.24053761) | version 0.1.0 | to cite the version you used, for reproducibility |
+| [10.5281/zenodo.24084780](https://doi.org/10.5281/zenodo.24084780) | version 0.1.1 | to cite the version you used, for reproducibility |
+| [10.5281/zenodo.24053761](https://doi.org/10.5281/zenodo.24053761) | version 0.1.0 | if you used 0.1.0 |
 
 Each new release gets its own version DOI, listed on the
 [Zenodo record](https://doi.org/10.5281/zenodo.24053760). `eofigs.__version__` tells you which
 version you have.
 
 > Mehmood, K. (2026). *eofigs: analysis-aware, publication-ready figures for Earth
-> observation research* (Version 0.1.0) [Computer software]. Zenodo.
-> <https://doi.org/10.5281/zenodo.24053761>
+> observation research* (Version 0.1.1) [Computer software]. Zenodo.
+> <https://doi.org/10.5281/zenodo.24084780>
 
 ```bibtex
 @software{mehmood_eofigs_2026,
   author    = {Mehmood, Kaleem},
   title     = {eofigs: analysis-aware, publication-ready figures for Earth observation research},
   year      = {2026},
-  version   = {0.1.0},
+  version   = {0.1.1},
   publisher = {Zenodo},
-  doi       = {10.5281/zenodo.24053761},
+  doi       = {10.5281/zenodo.24084780},
   url       = {https://github.com/kmkamilkhel/eofigs},
 }
 ```

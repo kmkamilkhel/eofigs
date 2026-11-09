@@ -4,6 +4,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- The citation page and the README give the version DOI of 0.1.1
+  (10.5281/zenodo.24084780).
+
 ## [0.1.1] - 2026-11-09
 
 A reliability release: four fixes, captions that state the assumptions of the per-pixel
@@ -169,5 +176,6 @@ figures: study area map, trend map, event composite and accuracy scatter.
 - Code of conduct (Contributor Covenant 2.1), issue templates, pull request template.
 - Citation file validation and coverage total in continuous integration.
 
+[Unreleased]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kmkamilkhel/eofigs/releases/tag/v0.1.0
