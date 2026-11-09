@@ -10,15 +10,18 @@ Analysis-aware, publication-ready figures for Earth observation research.
 
 <table>
 <tr>
-<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_swat.png" alt="Study area map: Swat valley"></a><br><b>Study area</b></td>
-<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_map_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_map_swat.png" alt="Trend map: Swat valley NDVI 2001–2024"></a><br><b>NDVI trend</b></td>
-<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite</b></td>
-<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_icesat2/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_icesat2.png" alt="Accuracy scatter: ICESat-2 against a DEM"></a><br><b>DEM validation</b></td>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/study_area_swat.png" alt="Study area map: Swat valley"></a><br><b>Study area map</b></td>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_map_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/trend_map_swat.png" alt="Trend map: Swat valley NDVI 2001–2024"></a><br><b>Trend map</b></td>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite</b></td>
+</tr>
+<tr>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_icesat2/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/accuracy_scatter_icesat2.png" alt="Accuracy scatter: ICESat-2 against a DEM"></a><br><b>DEM accuracy (ICESat-2)</b></td>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/fdr_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/fdr_synthetic.png" alt="Significance with false discovery rate control"></a><br><b>False discovery rate</b></td>
+<td width="33%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/house_style/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/cards/house_style.png" alt="House style"></a><br><b>House style</b></td>
 </tr>
 </table>
 
-Four figures from open data for the Swat valley, Pakistan (Copernicus DEM, ESA WorldCover,
-MODIS, TerraClimate, ICESat-2). Click a figure for its code and caption.
+More examples in the [gallery](https://kmkamilkhel.github.io/eofigs/gallery/).
 
 eofigs turns Earth observation analysis outputs (rasters, time series, validation pairs) into
 journal-ready figures that know the analysis, the variable and the printed size:
@@ -31,39 +34,6 @@ journal-ready figures that know the analysis, the variable and the printed size:
   from its width in mm and its dpi, keeping memory use and PDF size small.
 - **Journal presets and one-call export** to vector PDF plus 600 dpi PNG or TIFF, with a check
   of size, resolution, smallest font, font embedding and colour-blind safety.
-
-## Gallery
-
-<table>
-<tr>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_swat.png" alt="Study area map: Swat valley"></a><br><b>Study area map: Swat valley</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_single_column/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_single_column.png" alt="Study area map: single column"></a><br><b>Study area map: single column</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/house_style/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/house_style.png" alt="House style"></a><br><b>House style</b></td>
-</tr>
-<tr>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/style_export/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/style_export.png" alt="Journal style and export"></a><br><b>Journal style and export</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/large_raster/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/large_raster.png" alt="Large raster at print size"></a><br><b>Large raster at print size</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_significance/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_significance.png" alt="Trend and significance"></a><br><b>Trend and significance</b></td>
-</tr>
-<tr>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_map_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_map_swat.png" alt="Trend map: Swat valley NDVI 2001–2024"></a><br><b>Trend map: Swat valley NDVI 2001–2024</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_profile_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_profile_swat.png" alt="Trend map with latitude profile"></a><br><b>Trend map with latitude profile</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/palettes/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/palettes.png" alt="Built-in palettes"></a><br><b>Built-in palettes</b></td>
-</tr>
-<tr>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite: Swat hot-dry months</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_synthetic.png" alt="Event composite with significance"></a><br><b>Event composite with significance</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_icesat2/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_icesat2.png" alt="Accuracy scatter: ICESat-2 against a DEM"></a><br><b>Accuracy scatter: ICESat-2 against a DEM</b></td>
-</tr>
-<tr>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_synthetic.png" alt="Accuracy scatter: calibration and validation"></a><br><b>Accuracy scatter: calibration and validation</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/fdr_synthetic/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/fdr_synthetic.png" alt="Significance with false discovery rate control"></a><br><b>Significance with false discovery rate control</b></td>
-<td width="33%"><a href="https://kmkamilkhel.github.io/eofigs/gallery/seasonal_trend_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/seasonal_trend_swat.png" alt="Seasonal trend map: Swat valley monthly NDVI"></a><br><b>Seasonal trend map: Swat valley monthly NDVI</b></td>
-</tr>
-</table>
-
-More in the [gallery](https://kmkamilkhel.github.io/eofigs/gallery/), with the code for
-each figure.
 
 ## Installation
 

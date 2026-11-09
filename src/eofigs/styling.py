@@ -396,6 +396,7 @@ def label_panels(
             artist = ax.text(0, 1, text, transform=transform, ha="left", va="top")
         artist.set_fontweight(weight)
         artist.set_fontsize(size)
+        artist.set_gid("eofigs-panel-label")
         artists.append(artist)
     return artists
 

@@ -47,6 +47,10 @@ fig = eofigs.trend_map(
     width="onehalf",
 )
 
+
+# README card: the lower valley, with the north arrow and scale bar
+readme_card = [(fig.axes[0], (0.0, 0.0, 1.0, 0.38))]
+
 if __name__ == "__main__":
     print(fig.eofigs_layout["caption"])
     print(eofigs.save_figure(fig, "trend_map_swat"))

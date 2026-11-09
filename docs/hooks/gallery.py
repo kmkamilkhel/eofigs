@@ -10,8 +10,17 @@ During the docs build every example is run; for each one the hook adds to the si
 - ``gallery/files/<slug>.py``, ``.pdf`` and ``_600dpi.png`` (downloads).
 
 ``gallery/index.md`` and the marker ``<!-- gallery-grid -->`` on the home page get a grid
-of cards. An example that raises stops the build. The README must show every example's
-thumbnail (checked here, so a missing entry fails ``mkdocs build --strict``).
+of cards. An example that raises stops the build.
+
+The README opens with a grid of the examples in ``README_CARDS``. Each of these examples
+names, in a list ``readme_card``, the parts of its figure the card shows: artists (axes,
+colour-bar axes, legends; their tight bounding box) or ``(artist, (x0, y0, x1, y1))`` for a
+part of an axes frame (fractions, y upwards). A list of dicts ``{"items": [...], "label":
+...}`` makes a card of several crops side by side, each labelled. The build renders that
+region of the figure, made 4:3 (``gallery/cards/<slug>.png``), so a layout change in an
+example moves the crop with it. The README must show and link every card, and every docs-site
+image it uses must be one the build makes (checked here, so a missing or stale entry fails
+``mkdocs build --strict``).
 """
 
 from __future__ import annotations
@@ -43,6 +52,23 @@ SITE_URL = "https://kmkamilkhel.github.io/eofigs"
 GRID_MARKER = "<!-- gallery-grid -->"
 WEB_DPI = 200
 THUMB_SIZE = (480, 360)
+#: README card size (4:3), margin around the named parts (mm), gutter and label band (px).
+CARD_SIZE = (800, 600)
+CARD_MARGIN_MM = 0.5
+CARD_GUTTER = 16
+CARD_LABEL_H = 44
+#: README grid, row by row: example slug, how a region that is not 4:3 is made 4:3
+#: ("figure": take more of the figure, then white; "white": add white), whether panel letters
+#: stay on the card, and the tile title. The parts shown are set in each example (readme_card).
+README_CARDS = (
+    ("study_area_swat", "white", False, "Study area map"),
+    ("trend_map_swat", "figure", False, "Trend map"),
+    ("event_composite_swat", "figure", False, "Event composite"),
+    ("accuracy_scatter_icesat2", "white", False, "DEM accuracy (ICESat-2)"),
+    ("fdr_synthetic", "figure", False, "False discovery rate"),
+    ("house_style", "white", True, "House style"),  # the bold letters are part of the style
+)
+PANEL_LABEL_GID = "eofigs-panel-label"
 _FONT_WARNING = r"Font .* is not installed"
 
 
@@ -117,6 +143,104 @@ def _thumbnail(images: list[bytes]) -> bytes:
     return out.getvalue()
 
 
+def _region(fig, items) -> tuple[float, float, float, float]:
+    """Union of the named parts, in inches from the figure's lower left (with a margin)."""
+    from matplotlib.transforms import Bbox
+
+    renderer = fig.canvas.get_renderer()
+    boxes = []
+    for item in items:
+        if isinstance(item, tuple):
+            artist, (fx0, fy0, fx1, fy1) = item
+            b = artist.get_window_extent(renderer)
+            x0, x1 = b.x0 + fx0 * b.width, b.x0 + fx1 * b.width
+            y0, y1 = b.y0 + fy0 * b.height, b.y0 + fy1 * b.height
+            boxes.append(Bbox.from_extents(x0, y0, x1, y1))
+        else:
+            boxes.append(item.get_tightbbox(renderer))
+    union = Bbox.union(boxes)
+    margin = CARD_MARGIN_MM / 25.4
+    return (union.x0 / fig.dpi - margin, union.y0 / fig.dpi - margin,
+            union.x1 / fig.dpi + margin, union.y1 / fig.dpi + margin)  # fmt: skip
+
+
+def _render(fig, region, size, fill):
+    """Render ``region`` (inches) of ``fig`` at the aspect of ``size``, as a PIL image.
+
+    ``fill="figure"`` widens the region within the figure; ``fill="white"`` renders only the
+    region and centres it on white.
+    """
+    from matplotlib.transforms import Bbox
+    from PIL import Image
+
+    x0, y0, x1, y1 = region
+    fig_w, fig_h = fig.get_size_inches()
+    aspect = size[0] / size[1]
+    if fill == "figure":
+        if (x1 - x0) / (y1 - y0) > aspect:  # too wide: more height
+            grow = (x1 - x0) / aspect - (y1 - y0)
+            y0, y1 = y0 - grow / 2, y1 + grow / 2
+            shift = max(0.0, -y0) - max(0.0, y1 - fig_h)
+            y0, y1 = y0 + shift, y1 + shift
+        else:  # too tall: more width
+            grow = (y1 - y0) * aspect - (x1 - x0)
+            x0, x1 = x0 - grow / 2, x1 + grow / 2
+            shift = max(0.0, -x0) - max(0.0, x1 - fig_w)
+            x0, x1 = x0 + shift, x1 + shift
+    scale = min(size[0] / (x1 - x0), size[1] / (y1 - y0))  # pixels per inch on the card
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", dpi=2 * scale, facecolor="white",
+                bbox_inches=Bbox.from_extents(x0, y0, x1, y1))  # fmt: skip
+    with Image.open(buf) as image:
+        part = image.convert("RGB").resize(
+            (min(size[0], round((x1 - x0) * scale)), min(size[1], round((y1 - y0) * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    slot = Image.new("RGB", size, "white")
+    slot.paste(part, ((size[0] - part.width) // 2, (size[1] - part.height) // 2))
+    return slot
+
+
+def _card(spec, fill: str, keep_letters: bool) -> bytes:
+    """Render an example's ``readme_card`` as a CARD_SIZE PNG."""
+    from matplotlib import font_manager
+    from matplotlib.text import Text
+    from PIL import Image, ImageDraw, ImageFont
+
+    groups = spec if spec and isinstance(spec[0], dict) else [{"items": spec, "label": None}]
+    first = groups[0]["items"][0]
+    fig = (first[0] if isinstance(first, tuple) else first).get_figure(root=True)
+    hidden = []
+    if not keep_letters:
+        for text in fig.findobj(lambda a: isinstance(a, Text) and a.get_gid() == PANEL_LABEL_GID):
+            if text.get_visible():
+                text.set_visible(False)
+                hidden.append(text)
+    try:
+        fig.canvas.draw()
+        card = Image.new("RGB", CARD_SIZE, "white")
+        n = len(groups)
+        labelled = any(g.get("label") for g in groups)
+        slot = ((CARD_SIZE[0] - CARD_GUTTER * (n - 1)) // n,
+                CARD_SIZE[1] - (CARD_LABEL_H if labelled else 0))  # fmt: skip
+        font_path = font_manager.findfont(font_manager.FontProperties(weight="bold"))
+        font = ImageFont.truetype(font_path, 26)
+        draw = ImageDraw.Draw(card)
+        for i, group in enumerate(groups):
+            x = i * (slot[0] + CARD_GUTTER)
+            card.paste(_render(fig, _region(fig, group["items"]), slot, fill), (x, 0))
+            if group.get("label"):
+                width = draw.textlength(group["label"], font=font)
+                draw.text((x + (slot[0] - width) / 2, slot[1] + 8), group["label"], font=font,
+                          fill=(31, 35, 40))  # fmt: skip
+    finally:
+        for text in hidden:
+            text.set_visible(True)
+    out = io.BytesIO()
+    card.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
 def _run(path: Path) -> Example:
     key = (str(path), path.stat().st_mtime_ns)
     if key in _CACHE:
@@ -154,6 +278,12 @@ def _run(path: Path) -> Example:
                     status = "warning"
                 panels.append(Panel(label, name, str(checked), status))
             files[f"thumbs/{slug}.png"] = _thumbnail(web_images)
+            for card_slug, fill, keep_letters, _ in README_CARDS:
+                if card_slug == slug:
+                    if "readme_card" not in namespace:
+                        raise PluginError(f"{path.name} is a README card; it needs readme_card.")
+                    files[f"cards/{slug}.png"] = _card(namespace["readme_card"], fill,
+                                                       keep_letters)  # fmt: skip
     except PluginError:
         raise
     except Exception as exc:  # a broken example fails the build
@@ -236,10 +366,18 @@ def _index(examples: list[Example]) -> str:
 
 def _check_readme(examples: list[Example]) -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for ex in examples:
-        thumb = f"{SITE_URL}/gallery/thumbs/{ex.slug}.png"
-        if thumb not in readme:
-            log.warning("README.md has no gallery thumbnail for %r (%s).", ex.slug, thumb)
+    slugs = {ex.slug for ex in examples}
+    for slug, _, _, title in README_CARDS:
+        if slug not in slugs:
+            log.warning("README_CARDS names %r, which is not a gallery example.", slug)
+        image = f"{SITE_URL}/gallery/cards/{slug}.png"
+        page = f"{SITE_URL}/gallery/{slug}/"
+        if image not in readme or page not in readme:
+            log.warning("README.md is missing the %r card (%s linking to %s).", title, image, page)
+    made = {f"{SITE_URL}/gallery/{name}" for ex in examples for name in ex.files}
+    for url in re.findall(re.escape(SITE_URL) + r"/gallery/[^\s\"')<>]+\.png", readme):
+        if url not in made:
+            log.warning("README.md shows %s, which the docs build does not make.", url)
 
 
 def on_files(files: Files, config) -> Files:
