@@ -1,0 +1,52 @@
+name: Re-run jobs that got no runner
+
+# When a Tests run ends with jobs that GitHub could not assign to a hosted runner (it reports
+# "The job was not acquired by Runner"), re-run them once. The run is re-run only if every
+# failed, cancelled or timed-out job has that annotation; if any job failed for another
+# reason, the run is left for a person. Runs cancelled by a newer push have no such
+# annotation and are left alone too. The workflow only calls the GitHub API with the
+# repository token; it never checks out or runs pull request code.
+on:
+  workflow_run:
+    workflows: [Tests]
+    types: [completed]
+
+permissions:
+  actions: write
+  checks: read
+
+concurrency:
+  group: rerun-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  rerun:
+    if: >-
+      github.event.workflow_run.run_attempt == 1 &&
+      github.event.workflow_run.conclusion != 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run once if every failed job got no runner
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+        run: |
+          jobs_json=$(gh api "repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100")
+          bad=$(jq -r '.jobs[]
+            | select(.conclusion == "failure" or .conclusion == "cancelled"
+                     or .conclusion == "timed_out")
+            | .id' <<<"$jobs_json")
+          if [ -z "$bad" ]; then
+            echo "Nothing failed, was cancelled or timed out."
+            exit 0
+          fi
+          for job in $bad; do
+            if ! gh api "repos/$REPO/check-runs/$job/annotations" --jq '.[].message' \
+                | grep -q "was not acquired by Runner"; then
+              echo "Job $job did not fail for lack of a runner; leaving the run for a person."
+              exit 0
+            fi
+          done
+          echo "Every failed job got no runner; re-running them once."
+          gh run rerun "$RUN_ID" --repo "$REPO" --failed
