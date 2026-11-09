@@ -8,7 +8,8 @@ climatology 2001–2021); consecutive months form one event. NDVI: monthly media
 Terra MOD13A1 v6.1 16-day composites (pixel reliability 0–1), averaged to 1 km,
 2001–2021. Anomalies from the monthly climatology of the months outside the event windows,
 after removing a per-pixel linear trend fitted to those months. The caption sentence with
-the events, the colour limits, the significance rule and the masked classes comes from
+the events, the colour limits, the significance rule (per-pixel tests across events, not
+adjusted for multiple comparisons) and the masked classes comes from
 `fig.eofigs_layout["caption"]`; the event table is `docs/data/swat/swat_hot_dry_events.csv`.
 TerraClimate: Abatzoglou et al. (2018), CC0 1.0. MODIS data: NASA LP DAAC. Both accessed
 through the Microsoft Planetary Computer. Boundaries and names shown do not imply any

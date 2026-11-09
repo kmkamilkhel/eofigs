@@ -8,6 +8,18 @@
 
 Analysis-aware, publication-ready figures for Earth observation research.
 
+<table>
+<tr>
+<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/study_area_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/study_area_swat.png" alt="Study area map: Swat valley"></a><br><b>Study area</b></td>
+<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/trend_map_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/trend_map_swat.png" alt="Trend map: Swat valley NDVI 2001–2024"></a><br><b>NDVI trend</b></td>
+<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/event_composite_swat/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/event_composite_swat.png" alt="Event composite: Swat hot-dry months"></a><br><b>Event composite</b></td>
+<td width="25%" align="center"><a href="https://kmkamilkhel.github.io/eofigs/gallery/accuracy_scatter_icesat2/"><img src="https://kmkamilkhel.github.io/eofigs/gallery/thumbs/accuracy_scatter_icesat2.png" alt="Accuracy scatter: ICESat-2 against a DEM"></a><br><b>DEM validation</b></td>
+</tr>
+</table>
+
+Four figures from open data for the Swat valley, Pakistan (Copernicus DEM, ESA WorldCover,
+MODIS, TerraClimate, ICESat-2). Click a figure for its code and caption.
+
 eofigs turns Earth observation analysis outputs (rasters, time series, validation pairs) into
 journal-ready figures that know the analysis, the variable and the printed size:
 
@@ -85,11 +97,11 @@ More in the [quickstart](https://kmkamilkhel.github.io/eofigs/quickstart/) and t
 ## Run with Docker
 
 A container image with eofigs and its geospatial stack (cartopy, rioxarray, geopandas, fonts)
-is published on GitHub Container Registry for each release (`0.1.0`, `latest`; `dev` follows
+is published on GitHub Container Registry for each release (`0.1.1`, `latest`; `dev` follows
 the main branch):
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.0 python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.1 python script.py
 ```
 
 ## Roadmap

@@ -4,7 +4,8 @@ A synthetic monthly NDVI cube (2001–2020, 60 × 80 pixels of 1 km) with a seas
 greening trend of 0.05 per decade, noise, and eight two-month hot-dry events. During each
 event NDVI drops by 0.03 in the west to 0.08 in the east, and by half that in the three
 months after. With eight events the t-test across events marks the response: dots where
-at least half of the pixels in a 1.6 mm cell are significant (p < 0.05). The per-pixel
+at least half of the pixels in a 1.6 mm cell are significant (p < 0.05); the per-pixel
+tests are not adjusted for multiple comparisons. The per-pixel
 linear trend is removed before the monthly climatology, so the late events are not made
 to look milder by the greening. Synthetic data.
 """

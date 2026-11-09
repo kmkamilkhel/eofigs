@@ -7,10 +7,12 @@ import pandas as pd
 import pytest
 import rioxarray  # noqa: F401
 import xarray as xr
+from geo_helpers import assert_hatching_on, geo_grid
 from scipy import stats
 
 import eofigs
 from eofigs import events as ev
+from eofigs import trends
 
 UTM = "EPSG:32643"
 SWAT = Path(__file__).resolve().parents[1] / "docs" / "data" / "swat"
@@ -383,3 +385,30 @@ def test_equal_lengths_draw_one_shade_and_low_power_note(custom_style):
     assert "low power" not in _layout(fig)["caption"]
     fig = eofigs.event_composite(_injected(noise=0.01), _events(STARTS[:4]), stipple="hatch")
     assert "absence of hatching does not indicate" in _layout(fig)["caption"]
+
+
+# ----------------------------------------------------------------------------- 0.1.1 fixes
+
+
+def test_geographic_cube_with_gaps_and_bare_ground(custom_style):
+    cube = _injected(ny=30, nx=30, noise=0.01)
+    grid = geo_grid(np.zeros((30, 30)))
+    cube = cube.assign_coords(y=grid.y.values, x=grid.x.values).rio.write_crs("EPSG:4326")
+    cube[:, 20:26, 3:9] = 0.05  # rock: not vegetated
+    cube[1:, 4:9, 4:9] = np.nan  # one value only: inside the data, no anomalies
+    fig = eofigs.event_composite(cube, _events())
+    layout = _layout(fig)
+    assert layout["excluded_percent"] > 0 and layout["no_data_percent"] > 0
+    for ax in fig.axes[:3]:  # the before, during and after maps
+        assert_hatching_on(ax, trends.NO_DATA_HATCH, grid, slice(4, 9), slice(4, 9))
+        assert_hatching_on(ax, trends.EXCLUDED_HATCH, grid, slice(20, 26), slice(3, 9))
+
+
+def test_caption_notes_multiple_comparisons(custom_style):
+    fig = eofigs.event_composite(_injected(noise=0.01), _events())
+    assert (
+        "Per-pixel tests across events are not adjusted for multiple comparisons."
+        in _layout(fig)["caption"]
+    )
+    untested = eofigs.event_composite(_injected(noise=0.01), _events(), test=None)
+    assert "multiple comparisons" not in _layout(untested)["caption"]

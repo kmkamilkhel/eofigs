@@ -41,6 +41,8 @@ MIN_EVENTS = 3
 MIN_ZSCORE_VALUES = 5
 #: Below this many tested events the caption notes that the test has low power.
 LOW_POWER_EVENTS = 5
+#: Caption sentence on the per-pixel tests behind the significance marks (Wilks 2016).
+ASSUMPTIONS = "Per-pixel tests across events are not adjusted for multiple comparisons."
 #: Each event in the composite series.
 EVENT_LINE_COLOUR = "#7F7F7F"
 #: Series shading while every event is ongoing (muted mustard: hot and dry).
@@ -1040,6 +1042,7 @@ def _caption(record, used, var, grid, times, o, threshold, tested, labels=None) 
             f"{what}: at least {o['sig_fraction'] * 100:g} % of {size} pixels "
             f"significant ({name} across {n} events, p < {o['alpha']:g})."
         )
+        parts.append(ASSUMPTIONS)
         if n < LOW_POWER_EVENTS:
             parts.append(
                 f"With only {n} events the test has low power; absence of "

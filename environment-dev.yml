@@ -14,11 +14,13 @@ dependencies:
   - geopandas
   - shapely
   - pyproj
+  - pypdf
   - dask
   - tqdm
   - pytest
   - pytest-cov
   - pytest-mpl
+  - fpdf2
   - ruff
   - pre-commit
   - python-build

@@ -733,34 +733,121 @@ def _check_raster(path: Path, preset: Journal, art: str) -> list[CheckResult]:
 
 
 _MEDIABOX = re.compile(rb"/MediaBox\s*\[\s*([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s+([-\d.]+)\s*\]")
-_FONT_SUBTYPE = re.compile(rb"/Subtype\s*/(Type3|Type1|TrueType|Type0|CIDFontType0|CIDFontType2)\b")
-_BASEFONT = re.compile(rb"/BaseFont\s*/([^\s/<>\[\]()]+)")
+_FONT_FILES = ("/FontFile", "/FontFile2", "/FontFile3")
+
+
+def _font_entries(path: Path) -> tuple[dict[str, str], tuple[float, ...] | None]:
+    """Fonts used on the pages of a PDF, each "embedded", "type3" or "not embedded".
+
+    Reads the PDF structure (cross-reference tables and object streams) with pypdf,
+    tolerantly (small deviations from the specification, common in files from other
+    tools, are repaired), and follows every page's resources, including form XObjects and
+    Type 3 glyph resources. A font counts as embedded only when its descriptor carries the
+    font program (FontFile, FontFile2 or FontFile3). Returns the fonts and the first
+    page's MediaBox. Raises ValueError when the font resources cannot be enumerated.
+    """
+    import logging
+    import warnings
+
+    from pypdf import PdfReader
+    from pypdf.errors import PyPdfError
+
+    fonts: dict[str, str] = {}
+    seen: set[int] = set()
+    rank = {"embedded": 0, "not embedded": 1, "type3": 2}
+
+    def resolve(obj):
+        return obj.get_object() if obj is not None else None
+
+    def visit(resources) -> None:
+        res = resolve(resources)
+        if not res or id(res) in seen:
+            return
+        seen.add(id(res))
+        for key, ref in (resolve(res.get("/Font")) or {}).items():
+            font = resolve(ref)
+            subtype = font.get("/Subtype")
+            name = str(font.get("/BaseFont") or font.get("/Name") or key).lstrip("/")
+            name = re.sub(r"^[A-Z]{6}\+", "", name)
+            if subtype == "/Type3":
+                status = "type3"
+                visit(font.get("/Resources"))
+            else:
+                described = resolve(font["/DescendantFonts"])[0] if subtype == "/Type0" else font
+                descriptor = resolve(resolve(described).get("/FontDescriptor"))
+                embedded = descriptor is not None and any(k in descriptor for k in _FONT_FILES)
+                status = "embedded" if embedded else "not embedded"
+            if rank[status] >= rank.get(fonts.get(name, "embedded"), 0):
+                fonts[name] = status
+        for ref in (resolve(res.get("/XObject")) or {}).values():
+            xobject = resolve(ref)
+            if xobject.get("/Subtype") == "/Form":
+                visit(xobject.get("/Resources"))
+
+    try:
+        log = logging.getLogger("pypdf")
+        level = log.level
+        log.setLevel(logging.ERROR)  # repairs are logged as warnings; the result says enough
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                reader = PdfReader(path, strict=False)
+                box = None
+                for i, page in enumerate(reader.pages):
+                    if i == 0:
+                        box = tuple(float(v) for v in page.mediabox)
+                    visit(page.get("/Resources"))
+        finally:
+            log.setLevel(level)
+    except (PyPdfError, KeyError, IndexError, TypeError, AttributeError, ValueError) as exc:
+        raise ValueError(f"{type(exc).__name__}: {exc}") from exc
+    return fonts, box
 
 
 def _check_pdf(path: Path, preset: Journal) -> list[CheckResult]:
-    data = path.read_bytes()
     target = path.name
     results = []
-    box = _MEDIABOX.search(data)
+    try:
+        fonts, box = _font_entries(path)
+    except ValueError as exc:
+        fonts, box = None, None
+        reason = str(exc)
+    if box is None:
+        found = _MEDIABOX.search(path.read_bytes())
+        box = tuple(float(v) for v in found.groups()) if found else None
     if box:
-        x0, y0, x1, y1 = (float(v) for v in box.groups())
+        x0, y0, x1, y1 = box
         results.append(
             _size_result((x1 - x0) / 72 * MM_PER_INCH, (y1 - y0) / 72 * MM_PER_INCH, preset, target)
         )
-    subtypes = {m.decode() for m in _FONT_SUBTYPE.findall(data)}
-    names = sorted({re.sub(r"^[A-Z]{6}\+", "", m.decode()) for m in _BASEFONT.findall(data)})
-    if not names:
-        results.append(CheckResult("fonts", "pass", "No fonts embedded (no text).", target))
-    elif "Type3" in subtypes:
+    if fonts is None:
         results.append(
             CheckResult(
                 "fonts",
-                "fail",
-                f"Type 3 fonts embedded ({', '.join(names)}); journals need Type 42/TrueType. "
-                "Use eofigs.set_style or set pdf.fonttype to 42.",
+                "warn",
+                f"Font embedding could not be verified: the fonts of the PDF could not be read "
+                f"({reason}). Check the fonts in a PDF viewer (document properties).",
                 target,
             )
         )
+        return results
+    type3 = sorted(n for n, s in fonts.items() if s == "type3")
+    missing = sorted(n for n, s in fonts.items() if s == "not embedded")
+    if not fonts:
+        results.append(CheckResult("fonts", "pass", "No fonts embedded (no text).", target))
+    elif type3 or missing:
+        problems = []
+        if missing:
+            problems.append(
+                f"Fonts not embedded ({', '.join(missing)}); journals need every font "
+                "embedded. Turn pdf.use14corefonts off."
+            )
+        if type3:
+            problems.append(
+                f"Type 3 fonts embedded ({', '.join(type3)}); journals need Type 42/TrueType."
+            )
+        problems.append("Use eofigs.set_style or set pdf.fonttype to 42.")
+        results.append(CheckResult("fonts", "fail", " ".join(problems), target))
     else:
-        results.append(_font_list_result(names, preset, target, embedded=True))
+        results.append(_font_list_result(sorted(fonts), preset, target, embedded=True))
     return results

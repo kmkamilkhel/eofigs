@@ -170,6 +170,109 @@ def test_pdf_fonts_type42_pass_and_type3_fail(tmp_path, sans_font):
     assert font_result.status == "fail" and "Type 3" in font_result.message
 
 
+def test_pdf_with_unembedded_fonts_fails(tmp_path, sans_font):
+    fig, ax = _figure(sans_font)
+    ax.set_xlabel("Time (yr)")
+    with mpl.rc_context({"pdf.use14corefonts": True, "font.family": "sans-serif",
+                         "font.sans-serif": ["Helvetica"]}):  # fmt: skip
+        fig.savefig(tmp_path / "core14.pdf")
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "core14.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "fail"
+    assert "not embedded" in font_result.message and "Helvetica" in font_result.message
+
+
+def test_pdf_fonts_inside_form_xobjects_are_checked(tmp_path):
+    from pypdf import PdfWriter
+    from pypdf.generic import ArrayObject, DictionaryObject, FloatObject, NameObject, StreamObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(200, 100)
+    font = DictionaryObject({NameObject("/Type"): NameObject("/Font"),
+                             NameObject("/Subtype"): NameObject("/Type1"),
+                             NameObject("/BaseFont"): NameObject("/Helvetica")})  # fmt: skip
+    form = StreamObject()
+    form.set_data(b"BT /F1 12 Tf 10 10 Td (Hi) Tj ET")
+    form.update({
+        NameObject("/Type"): NameObject("/XObject"),
+        NameObject("/Subtype"): NameObject("/Form"),
+        NameObject("/BBox"): ArrayObject([FloatObject(v) for v in (0, 0, 200, 100)]),
+        NameObject("/Resources"): DictionaryObject(
+            {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+        ),
+    })  # fmt: skip
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/XObject"): DictionaryObject({NameObject("/Fm1"): writer._add_object(form)})}
+    )
+    with open(tmp_path / "form.pdf", "wb") as fh:
+        writer.write(fh)
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "form.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "fail" and "Helvetica" in font_result.message
+
+
+def test_pdf_from_another_writer(tmp_path):
+    """A PDF written by fpdf2 (not matplotlib): an embedded TrueType font passes."""
+    fpdf = pytest.importorskip("fpdf")
+    from matplotlib import font_manager
+
+    dejavu = font_manager.findfont("DejaVu Sans", fallback_to_default=False)
+    doc = fpdf.FPDF(unit="mm", format=(90, 60))
+    doc.add_page()
+    doc.add_font("DejaVu", fname=dejavu)
+    doc.set_font("DejaVu", size=8)
+    doc.text(10, 20, "Aboveground biomass (Mg ha⁻¹)")
+    doc.output(str(tmp_path / "fpdf.pdf"))
+    report = eofigs.check_figure(tmp_path / "fpdf.pdf")
+    by_name = {r.name: r for r in report.results}
+    assert by_name["fonts"].status == "pass", by_name["fonts"].message
+    assert "DejaVuSans" in by_name["fonts"].message
+    assert by_name["size"].status == "pass"  # 90 mm wide: a single column
+    core = fpdf.FPDF(unit="mm", format=(90, 60))
+    core.add_page()
+    core.set_font("Helvetica", size=8)  # a base-14 font: not embedded
+    core.text(10, 20, "Time (yr)")
+    core.output(str(tmp_path / "core.pdf"))
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "core.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "fail" and "Helvetica" in font_result.message
+
+
+def test_pdf_with_small_defects_is_read_tolerantly(tmp_path, sans_font, capsys):
+    """A wrong cross-reference offset (a common, harmless defect) is repaired, not warned."""
+    import re
+
+    fig, ax = _figure(sans_font)
+    ax.set_xlabel("Time (yr)")
+    eofigs.save_figure(fig, tmp_path / "ok.pdf", check=False)
+    data = (tmp_path / "ok.pdf").read_bytes()
+    found = re.search(rb"startxref\s+(\d+)", data)
+    wrong = str(int(found.group(1)) + 7).encode()
+    (tmp_path / "offset.pdf").write_bytes(data[: found.start(1)] + wrong + data[found.end(1) :])
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "offset.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "pass" and "DejaVuSans" in font_result.message
+    assert "xref" not in capsys.readouterr().err  # pypdf's repair notes are not printed
+
+
+def test_pdf_that_cannot_be_read_is_not_passed(tmp_path, sans_font):
+    fig, ax = _figure(sans_font)
+    ax.set_xlabel("Time (yr)")
+    eofigs.save_figure(fig, tmp_path / "ok.pdf", check=False)
+    data = (tmp_path / "ok.pdf").read_bytes()
+    cut = data.index(b"/FontFile2")
+    (tmp_path / "broken.pdf").write_bytes(data[:cut])  # font dictionaries, no font data
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "broken.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "warn"
+    assert "embedding could not be verified" in font_result.message
+
+
 def test_pdf_font_list_and_size(tmp_path, sans_font):
     fig, ax = _figure(sans_font)
     ax.set_xlabel("x")

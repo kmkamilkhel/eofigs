@@ -48,12 +48,13 @@ dependencies = [
     "geopandas>=1.0",
     "shapely>=2.0",
     "pyproj>=3.6",
+    "pypdf>=4.0",
 ]
 
 [project.optional-dependencies]
 dask = ["dask[array]>=2024.6", "tqdm>=4.66"]
 xee = ["xee>=0.1", "earthengine-api>=1.0"]
-test = ["pytest>=8", "pytest-cov>=5", "pytest-mpl>=0.17", "dask[array]>=2024.6"]
+test = ["pytest>=8", "pytest-cov>=5", "pytest-mpl>=0.17", "dask[array]>=2024.6", "fpdf2>=2.7"]
 docs = ["mkdocs-material>=9.5", "mkdocstrings[python]>=0.26"]
 dev = ["eofigs[dask,test,docs]", "ruff>=0.17", "pre-commit>=4", "build>=1.2"]
 

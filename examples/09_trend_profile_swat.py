@@ -3,7 +3,8 @@
 (a) Theil–Sen trend of growing-season NDVI (MODIS Terra MOD13A1 v6.1, 500 m, May–September
 median), 2001–2024, around the Swat valley (pre-2026 district boundary): the former Swat
 district (before January 2026), now Swat and Bar Swat (geoBoundaries). Dots: at least 50 %
-of 500 m pixels significant (Mann–Kendall, p < 0.05). Grey with diagonal hatching: mean
+of 500 m pixels significant (Mann–Kendall, p < 0.05); the per-pixel tests assume serial
+independence and are not adjusted for multiple comparisons. Grey with diagonal hatching: mean
 NDVI below 0.1 over the record (not vegetated); grey with cross-hatching: no valid trend
 (too few observations). (b) Median and interquartile range of
 the full-resolution slope in 0.02° latitude bands, vegetated pixels only, bands with at

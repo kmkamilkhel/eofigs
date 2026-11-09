@@ -22,8 +22,9 @@ Theil–Sen trend of growing-season NDVI (MODIS MOD13A1, 500 m, May–September 
 2001–2024, around the Swat valley (pre-2026 district boundary): the former Swat district
 (before January 2026), now Swat and Bar Swat. Colours are limited to ±0.08 decade⁻¹ (98th
 percentile of |slope|); 1.9 % of pixels exceed this. Dots: at least 50 % of 500 m pixels
-significant (Mann–Kendall, p < 0.05). Grey with diagonal hatching: mean NDVI below 0.1 over
-the record (not vegetated; 14.8 % of pixels). Grey with cross-hatching: no valid trend (too
+significant (Mann–Kendall, p < 0.05). Per-pixel Mann–Kendall tests assume serial
+independence and are not adjusted for multiple comparisons. Grey with diagonal hatching:
+mean NDVI below 0.1 over the record (not vegetated; 14.8 % of pixels). Grey with cross-hatching: no valid trend (too
 few observations; 0.8 % of pixels). Boundaries and names shown do not imply any opinion on the
 legal status of any country or territory. Full code and downloads:
 [gallery](gallery/trend_map_swat.md).
@@ -62,7 +63,8 @@ the exact numbers:
 fig.eofigs_layout["caption"]
 # 'Colours are limited to ±0.08 decade⁻¹ (98th percentile of |slope|); 1.9 % of pixels
 #  exceed this. Dots: at least 50 % of 500 m pixels significant (Mann–Kendall, p < 0.05).
-#  Grey with diagonal hatching: mean NDVI below 0.1 over the record (not vegetated; 14.8 %
+#  Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for
+#  multiple comparisons. Grey with diagonal hatching: mean NDVI below 0.1 over the record (not vegetated; 14.8 %
 #  of pixels). Grey with cross-hatching: no valid trend (too few observations; 0.8 % of
 #  pixels).'
 ```
@@ -70,6 +72,26 @@ fig.eofigs_layout["caption"]
 `fig.eofigs_layout` also records the limits, the clipped share, the share of significant
 pixels, the shares of not-vegetated and no-data pixels, the number of marks and the cell
 size.
+
+## What the dots mean
+
+Each pixel is tested on its own. The Mann–Kendall test assumes that the values of a pixel
+are serially independent; positive autocorrelation (common in vegetation and climate
+series) makes it reject too often. And with thousands of pixels tested at p < 0.05, about
+5 % of the pixels without any trend are marked by chance. Requiring half of the pixels in a
+cell to be significant thins out isolated false positives, but it is not a correction for
+multiple testing: neighbouring pixels are correlated, so false positives come in patches.
+The caption says both. With your own p-values (`slope=`, `pvalue=`) eofigs does not know
+the test, so the caption says only what eofigs did: "Significance from the supplied p-values
+(alpha = 0.05); eofigs applied no adjustment for multiple comparisons." Wilks (2016) explains why maps of per-pixel significance overstate
+results and recommends controlling the false discovery rate instead; that option is planned
+for eofigs 0.2. Until then, read the dots as a guide to where trends are consistent, not as
+a field significance test.
+
+Wilks, D. S. (2016). "The stippling shows statistically significant grid points": how
+research results are routinely overstated and overinterpreted, and what to do about it.
+*Bulletin of the American Meteorological Society*, 97(12), 2263–2273.
+[doi:10.1175/BAMS-D-15-00267.1](https://doi.org/10.1175/BAMS-D-15-00267.1)
 
 ## Latitude profile
 
@@ -84,7 +106,7 @@ fewer than 20 pixels are skipped. The bands line up with the map.
 | Argument | Use |
 |---|---|
 | `data` | a time-series cube (`time`, `y`, `x`) with a CRS; `trend` is run on it |
-| `slope`, `pvalue` | precomputed grids on the same grid; without `pvalue` there are no marks |
+| `slope`, `pvalue` | precomputed grids on the same grid and CRS (dimension order may differ); without `pvalue` there are no marks |
 | `alpha`, `sig_fraction`, `dot_spacing_mm`, `stipple` | the significance rule and its marks |
 | `limits` | `"p98"` (default), a number, or `None` for the largest absolute slope |
 | `exclude` | `"auto"`, a threshold on the record mean, a boolean grid, or `None` |

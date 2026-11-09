@@ -265,3 +265,110 @@ def test_errors(custom_style):
         eofigs.accuracy_scatter(obs, pred, groups=np.arange(20) % 2, density=True)
     with pytest.raises(ValueError, match="high > low"):
         eofigs.accuracy_scatter(obs, pred, limits=(5, 1))
+
+
+# ----------------------------------------------------------------------------- pairing (0.1.1)
+
+
+def _series(n=200, seed=3):
+    obs, pred = _pairs(n, seed)
+    index = pd.Index([f"plot{i:03d}" for i in range(n)], name="plot")
+    return pd.Series(obs, index=index, name="observed"), pd.Series(pred, index=index)
+
+
+def test_pandas_inputs_are_paired_by_index(custom_style):
+    obs, pred = _series()
+    reference = _layout(eofigs.accuracy_scatter(obs, pred))
+    shuffled = pred.sample(frac=1.0, random_state=7)
+    assert not shuffled.index.equals(obs.index)
+    layout = _layout(eofigs.accuracy_scatter(obs, shuffled))
+    for key in ("r2", "rmse", "bias", "nmad", "slope", "intercept", "n"):
+        assert layout["stats"][key] == pytest.approx(reference["stats"][key], rel=1e-12)
+    assert layout["pairing"] == "index"
+    assert _layout(eofigs.accuracy_scatter(obs.to_numpy(), pred.to_numpy()))["pairing"] == (
+        "position"
+    )
+
+
+def test_groups_follow_the_index_alignment(custom_style):
+    obs, pred = _series()
+    groups = pd.Series(np.where(np.arange(obs.size) % 3 == 0, "calibration", "validation"),
+                       index=obs.index, name="set")  # fmt: skip
+    reference = _layout(eofigs.accuracy_scatter(obs, pred, groups=groups))["groups"]
+    order = np.random.default_rng(5).permutation(obs.size)
+    layout = _layout(
+        eofigs.accuracy_scatter(obs, pred.iloc[order], groups=groups.iloc[order[::-1]])
+    )
+    for name, st in reference.items():
+        assert layout["groups"][name]["rmse"] == pytest.approx(st["rmse"], rel=1e-12)
+        assert layout["groups"][name]["n"] == st["n"]
+    # a plain array of groups is positional, in the order of observed
+    layout = _layout(eofigs.accuracy_scatter(obs, pred.iloc[order], groups=groups.to_numpy()))
+    for name, st in reference.items():
+        assert layout["groups"][name]["rmse"] == pytest.approx(st["rmse"], rel=1e-12)
+
+
+def test_mismatched_or_duplicated_index_labels_raise(custom_style):
+    obs, pred = _series(50)
+    other = pred.copy()
+    other.index = [f"plot{i:03d}" for i in range(5, 55)]
+    with pytest.raises(ValueError, match="5 labels of observed are not in predicted"):
+        eofigs.accuracy_scatter(obs, other)
+    duplicated = pred.copy()
+    duplicated.index = list(obs.index[:-1]) + [obs.index[0]]
+    with pytest.raises(ValueError, match="1 duplicated label"):
+        eofigs.accuracy_scatter(obs, duplicated)
+    groups = pd.Series(["a", "b"] * 25, index=other.index)
+    with pytest.raises(ValueError, match="groups"):
+        eofigs.accuracy_scatter(obs, pred, groups=groups)
+
+
+def test_one_pandas_and_one_array_pair_by_position(custom_style):
+    obs, pred = _series()
+    shuffled = pred.sample(frac=1.0, random_state=7)
+    positional = _layout(eofigs.accuracy_scatter(obs.to_numpy(), shuffled.to_numpy()))
+    layout = _layout(eofigs.accuracy_scatter(obs, shuffled.to_numpy()))
+    assert layout["stats"]["rmse"] == pytest.approx(positional["stats"]["rmse"], rel=1e-12)
+    assert layout["pairing"] == "position"
+
+
+def test_xarray_inputs_are_aligned_exactly(custom_style):
+    import xarray as xr
+
+    obs, pred = _pairs(12 * 10)
+    coords = {"y": np.arange(12.0), "x": np.arange(10.0)}
+    o = xr.DataArray(obs.reshape(12, 10), dims=("y", "x"), coords=coords)
+    p = xr.DataArray(pred.reshape(12, 10), dims=("y", "x"), coords=coords)
+    reference = _layout(eofigs.accuracy_scatter(o, p))
+    layout = _layout(eofigs.accuracy_scatter(o, p.transpose("x", "y")))
+    assert layout["stats"]["rmse"] == pytest.approx(reference["stats"]["rmse"], rel=1e-12)
+    assert layout["pairing"] == "coordinates"
+    flipped = p.isel(y=slice(None, None, -1))  # same labels, another order: reordered
+    layout = _layout(eofigs.accuracy_scatter(o, flipped))
+    assert layout["stats"]["rmse"] == pytest.approx(reference["stats"]["rmse"], rel=1e-12)
+    shifted = p.assign_coords(x=p.x + 1)
+    with pytest.raises(ValueError, match="1 label of observed is not in predicted"):
+        eofigs.accuracy_scatter(o, shifted)
+    repeated = p.assign_coords(y=np.r_[np.arange(11.0), 0.0])
+    with pytest.raises(ValueError, match="duplicated label"):
+        eofigs.accuracy_scatter(o, repeated)
+
+
+def test_xarray_groups_and_dimension_names(custom_style):
+    import xarray as xr
+
+    obs, pred = _pairs(8 * 6)
+    coords = {"y": np.arange(8.0), "x": np.arange(6.0)}
+    o = xr.DataArray(obs.reshape(8, 6), dims=("y", "x"), coords=coords)
+    p = xr.DataArray(pred.reshape(8, 6), dims=("y", "x"), coords=coords)
+    labels = np.where(np.arange(48).reshape(8, 6) < 24, "north", "south")
+    g = xr.DataArray(labels, dims=("y", "x"), coords=coords)
+    reference = _layout(eofigs.accuracy_scatter(o, p, groups=g))["groups"]
+    layout = _layout(eofigs.accuracy_scatter(o, p, groups=g.transpose("x", "y")))["groups"]
+    assert layout["north"]["rmse"] == pytest.approx(reference["north"]["rmse"], rel=1e-12)
+    flipped = g.isel(y=slice(None, None, -1))
+    layout = _layout(eofigs.accuracy_scatter(o, p, groups=flipped))["groups"]
+    assert layout["south"]["rmse"] == pytest.approx(reference["south"]["rmse"], rel=1e-12)
+    renamed = p.rename({"y": "lat", "x": "lon"})
+    with pytest.raises(ValueError, match="dimensions"):
+        eofigs.accuracy_scatter(o, renamed)
