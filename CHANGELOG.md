@@ -7,6 +7,13 @@ Entries marked **Affects existing figures: re-render.** change figure output (wh
 the statistics, the layout) or caption text: figures made with an earlier version should be
 drawn again.
 
+## [Unreleased]
+
+### Changed
+
+- The citation page and the README give the version DOI of 0.1.1
+  (10.5281/zenodo.24084780).
+
 ## [0.1.1] - 2026-11-09
 
 A reliability release: four fixes, captions that state the assumptions of the per-pixel
@@ -175,5 +182,6 @@ figures: study area map, trend map, event composite and accuracy scatter.
 - Code of conduct (Contributor Covenant 2.1), issue templates, pull request template.
 - Citation file validation and coverage total in continuous integration.
 
+[Unreleased]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.1...HEAD
 [0.1.1]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kmkamilkhel/eofigs/releases/tag/v0.1.0
