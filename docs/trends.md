@@ -74,8 +74,10 @@ result.attrs["seasonal_correction"]  # 'Hirsch-Slack 1984'
   variance of the test statistic includes the covariances between seasons (Hirsch and Slack
   1984; the same computation as `rkt(..., correct = TRUE)`). The correction needs at least
   10 complete years; with fewer, the uncorrected test is used with a `TrendWarning`, and
-  `trend_map`'s caption says so. `seasonal_correction=False` treats the seasons as
-  independent.
+  `trend_map`'s caption says so. A complete year is a calendar year in which the time axis
+  has a step for every season, so the count is the same for every pixel; gaps within a pixel
+  are handled by mean ranks and by leaving out seasons with fewer than 4 values.
+  `seasonal_correction=False` treats the seasons as independent.
 - **Without `seasonal`**, sub-annual data (median step under 300 days) get a `TrendWarning`
   suggesting `seasonal="month"`; `seasonal="none"` keeps the plain test and states the
   choice.
