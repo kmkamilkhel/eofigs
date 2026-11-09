@@ -346,3 +346,20 @@ def test_xarray_inputs_are_aligned_exactly(custom_style):
     shifted = p.assign_coords(x=p.x + 1)
     with pytest.raises(ValueError, match="coordinates"):
         eofigs.accuracy_scatter(o, shifted)
+
+
+def test_xarray_groups_and_dimension_names(custom_style):
+    import xarray as xr
+
+    obs, pred = _pairs(8 * 6)
+    coords = {"y": np.arange(8.0), "x": np.arange(6.0)}
+    o = xr.DataArray(obs.reshape(8, 6), dims=("y", "x"), coords=coords)
+    p = xr.DataArray(pred.reshape(8, 6), dims=("y", "x"), coords=coords)
+    labels = np.where(np.arange(48).reshape(8, 6) < 24, "north", "south")
+    g = xr.DataArray(labels, dims=("y", "x"), coords=coords)
+    reference = _layout(eofigs.accuracy_scatter(o, p, groups=g))["groups"]
+    layout = _layout(eofigs.accuracy_scatter(o, p, groups=g.transpose("x", "y")))["groups"]
+    assert layout["north"]["rmse"] == pytest.approx(reference["north"]["rmse"], rel=1e-12)
+    renamed = p.rename({"y": "lat", "x": "lon"})
+    with pytest.raises(ValueError, match="dimensions"):
+        eofigs.accuracy_scatter(o, renamed)

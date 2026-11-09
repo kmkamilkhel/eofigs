@@ -10,6 +10,7 @@ from typing import Any
 import matplotlib as mpl
 import numpy as np
 import pandas as pd
+import xarray as xr
 from matplotlib.axes import Axes
 from matplotlib.colors import LinearSegmentedColormap, LogNorm
 from matplotlib.figure import Figure
@@ -111,14 +112,20 @@ def accuracy_scatter(
     ----------
     observed, predicted : array-like, pandas Series or xarray DataArray
         Paired values of the same shape; they are flattened, and pairs with a missing
-        value in either are left out (and counted in the record).
+        value in either are left out (and counted in the record). Two pandas objects are
+        paired by their index labels (``predicted`` is put in the order of ``observed``),
+        and two DataArrays by their coordinates (dimensions in the same order, then an
+        exact alignment); both raise an error when the labels do not match. Arrays, and a
+        pandas object or DataArray together with an array, are paired by position.
     variable : str or Variable, optional
         The variable (for example ``"agb"``); sets the axis labels, units and the number
         format of the statistics. Taken from the name of ``observed`` when it matches the
         variable library.
     groups : array-like, optional
         A category for each pair (up to 6), drawn in Okabe-Ito colours with distinct
-        markers. Statistics for each group are in the record and the caption.
+        markers. Statistics for each group are in the record and the caption. When the
+        inputs are paired by labels, a pandas Series or DataArray of groups is aligned
+        with them in the same way; a plain array follows the order of ``observed``.
     density : {"auto", True, False}, default "auto"
         Colour points by the number of points in each cell of a 60 × 60 grid (log scale,
         densest on top, rasterised in vector files). ``"auto"``: above 1 000 pairs and
@@ -163,14 +170,18 @@ def accuracy_scatter(
     matplotlib.figure.Figure
         The figure. ``fig.eofigs_layout`` (or ``ax.eofigs_layout`` with ``ax=``) records
         every statistic at full precision, the statistics of each group, the fitted line,
-        the limits and a ready caption sentence (``["caption"]``).
+        the limits, how the pairs were matched (``["pairing"]``: ``"index"``,
+        ``"coordinates"`` or ``"position"``) and a ready caption sentence
+        (``["caption"]``).
 
     Raises
     ------
     ValueError
-        For inputs of different shapes, fewer than 3 pairs, observed values that are all
-        equal, an unknown statistic, ``fit``, ``orientation``, ``density`` or
-        ``stats_loc``, more than 6 groups, or groups together with ``density=True``.
+        For pandas inputs whose index labels differ or repeat, DataArrays whose
+        dimensions or coordinates differ, inputs of different shapes, fewer than 3 pairs,
+        observed values that are all equal, an unknown statistic, ``fit``,
+        ``orientation``, ``density`` or ``stats_loc``, more than 6 groups, or groups
+        together with ``density=True``.
 
     Examples
     --------
@@ -185,6 +196,7 @@ def accuracy_scatter(
     """
     _check_arguments(stats, fit, orientation, density, stats_loc)
     var = _variable(variable, observed)
+    observed, predicted, groups, pairing = _align(observed, predicted, groups)
     obs, pred, grp, dropped = _pairs(observed, predicted, groups)
     names = _group_names(grp, groups)
     if density is True and grp is not None:
@@ -252,6 +264,7 @@ def accuracy_scatter(
 
     record: dict[str, Any] = {
         "n": record_stats["n"],
+        "pairing": pairing,
         "dropped": dropped,
         "stats": record_stats,
         "shown": list(stats),
@@ -304,6 +317,77 @@ def _variable(variable, observed) -> Variable | None:
         except ValueError:
             return None
     return None
+
+
+def _is_pandas(data) -> bool:
+    return isinstance(data, pd.Series | pd.DataFrame)
+
+
+def _label_problems(a: pd.Index, b: pd.Index, name_a: str, name_b: str) -> list[str]:
+    """Describe what keeps two indexes from pairing one to one (empty when nothing does)."""
+    problems = []
+    for first, second, n_first, n_second in ((a, b, name_a, name_b), (b, a, name_b, name_a)):
+        missing = len(first.unique().difference(second))
+        if missing:
+            verb = "are" if missing != 1 else "is"
+            problems.append(f"{missing} label{'s' if missing != 1 else ''} of {n_first} {verb} "
+                            f"not in {n_second}")  # fmt: skip
+    dup_a, dup_b = int(a.duplicated().sum()), int(b.duplicated().sum())
+    if dup_a or dup_b:
+        total = dup_a + dup_b
+        problems.append(f"{total} duplicated label{'s' if total != 1 else ''} ({name_a} {dup_a}, "
+                        f"{name_b} {dup_b})")  # fmt: skip
+    return problems
+
+
+def _align(observed, predicted, groups):
+    """Pair two pandas inputs by index and two DataArrays by coordinates; else by position."""
+    if _is_pandas(observed) and _is_pandas(predicted):
+        problems = _label_problems(observed.index, predicted.index, "observed", "predicted")
+        if problems:
+            raise ValueError(
+                "observed and predicted are paired by their index labels, which do not match: "
+                + "; ".join(problems)
+                + ". Fix the labels, or pass .to_numpy() to pair the values by position."
+            )
+        predicted = predicted.loc[observed.index]
+        if _is_pandas(groups):
+            problems = _label_problems(observed.index, groups.index, "observed", "groups")
+            if problems:
+                raise ValueError(
+                    "groups is paired with the inputs by its index labels, which do not "
+                    "match: " + "; ".join(problems) + ". Fix the labels, or pass "
+                    ".to_numpy() to take the groups in the order of observed."
+                )
+            groups = groups.loc[observed.index]
+        return observed, predicted, groups, "index"
+    if isinstance(observed, xr.DataArray) and isinstance(predicted, xr.DataArray):
+        dims = observed.dims
+        others = [("predicted", predicted)]
+        if isinstance(groups, xr.DataArray):
+            others.append(("groups", groups))
+        for name, other in others:
+            if set(other.dims) != set(dims):
+                raise ValueError(
+                    f"observed has dimensions {dims} and {name} {other.dims}; DataArrays are "
+                    "paired by their coordinates. Rename the dimensions, or pass .values to "
+                    "pair the values by position."
+                )
+        aligned = [observed] + [other.transpose(*dims) for _, other in others]
+        try:
+            aligned = xr.align(*aligned, join="exact")
+        except ValueError as exc:
+            raise ValueError(
+                "observed and predicted (and groups) are paired by their coordinates, which "
+                "do not match exactly. Put them on the same grid (for example with "
+                ".interp_like or .rio.reproject_match), or pass .values to pair the values by "
+                f"position. ({exc})"
+            ) from exc
+        observed, predicted = aligned[0], aligned[1]
+        if isinstance(groups, xr.DataArray):
+            groups = aligned[2]
+        return observed, predicted, groups, "coordinates"
+    return observed, predicted, groups, "position"
 
 
 def _values(data) -> np.ndarray:

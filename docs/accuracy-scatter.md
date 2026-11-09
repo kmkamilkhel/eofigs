@@ -38,6 +38,27 @@ Piñeiro, G., Perelman, S., Guerschman, J. P., & Paruelo, J. M. (2008). How to e
 models: Observed vs. predicted or predicted vs. observed? *Ecological Modelling*, 216(3–4),
 316–322. <https://doi.org/10.1016/j.ecolmodel.2008.05.006>
 
+## Pairing the values
+
+The statistics are only as good as the pairing of observed and predicted values.
+`accuracy_scatter` pairs them as follows:
+
+| Inputs | Paired by |
+|---|---|
+| two pandas Series (or DataFrames) | index labels: `predicted` is put in the order of `observed` |
+| two xarray DataArrays | coordinates: dimensions put in the same order, then an exact alignment |
+| arrays, or one labelled input and one array | position |
+
+Labelled inputs whose labels do not match one to one (labels missing on one side, or
+repeated) raise an error that counts them, rather than pairing the wrong values; pass
+`.to_numpy()` (or `.values`) to pair by position on purpose. A pandas Series or DataArray of
+`groups` is aligned in the same way. `fig.eofigs_layout["pairing"]` records which rule was
+used (`"index"`, `"coordinates"` or `"position"`).
+
+eofigs 0.1.0 paired pandas inputs by position. If you passed two Series whose indexes were
+in different orders (for example after a merge, a sort or a train/test split), the
+statistics from 0.1.0 are wrong; re-run with 0.1.1 or later.
+
 ## Statistics
 
 With observed values *O*, predicted values *P*, their means *Ō* and *P̄*, and *n* pairs
