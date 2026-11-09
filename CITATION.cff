@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
 title: "eofigs: analysis-aware, publication-ready figures for Earth observation research"
 type: software
-version: 0.1.0
-date-released: "2026-11-08"
+version: 0.1.1
+date-released: "2026-11-09"
 doi: 10.5281/zenodo.24053760
 abstract: >-
   eofigs turns Earth observation analysis outputs (rasters, time series and validation

@@ -4,11 +4,12 @@
 pip install eofigs
 ```
 
-eofigs needs Python 3.11 or newer. It depends on matplotlib, cartopy, xarray, rioxarray and
-geopandas. On Windows and macOS the simplest route to these libraries is conda-forge:
+eofigs needs Python 3.11 or newer. It depends on matplotlib, cartopy, xarray, rioxarray,
+geopandas and pypdf (which reads exported PDFs for the font check). On Windows and macOS the
+simplest route to these libraries is conda-forge:
 
 ```bash
-conda create -n eofigs -c conda-forge python=3.13 cartopy rioxarray geopandas matplotlib-scalebar
+conda create -n eofigs -c conda-forge python=3.13 cartopy rioxarray geopandas matplotlib-scalebar pypdf
 conda activate eofigs
 pip install cmcrameri eofigs
 ```
@@ -39,9 +40,9 @@ tells you which font was used. On Linux: `sudo apt install fonts-liberation font
 ## Docker
 
 An image with eofigs and its geospatial stack is published on GitHub Container Registry for
-Linux on amd64 and arm64. Each release has its own tag (`0.1.0`), `latest` is the newest
+Linux on amd64 and arm64. Each release has its own tag (`0.1.1`), `latest` is the newest
 release and `dev` follows the main branch:
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.0 python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.1 python script.py
 ```

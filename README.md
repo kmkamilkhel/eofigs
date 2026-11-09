@@ -97,11 +97,11 @@ More in the [quickstart](https://kmkamilkhel.github.io/eofigs/quickstart/) and t
 ## Run with Docker
 
 A container image with eofigs and its geospatial stack (cartopy, rioxarray, geopandas, fonts)
-is published on GitHub Container Registry for each release (`0.1.0`, `latest`; `dev` follows
+is published on GitHub Container Registry for each release (`0.1.1`, `latest`; `dev` follows
 the main branch):
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.0 python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.1 python script.py
 ```
 
 ## Roadmap
