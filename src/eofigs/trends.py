@@ -247,7 +247,9 @@ def trend_map(
     else:
         if subfigure is not None:
             width, height_mm = maps._size_mm(subfigure)
-        has_labels = latitude_profile and (labels is not None or _STATE.get("labels") is not None)
+        has_labels = (latitude_profile or subfigure is not None) and (
+            labels is not None or _STATE.get("labels") is not None
+        )  # room for panel letters: with the profile, or as one panel of a larger figure
         lay = _layout(width, height_mm, preset, ratio, small, size, legend_mm, latitude_profile,
                       has_labels)  # fmt: skip
         fig, ax = maps._make_axes(lay, preset, projection, holder)

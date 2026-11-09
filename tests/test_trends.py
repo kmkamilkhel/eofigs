@@ -418,6 +418,17 @@ def test_map_in_existing_axes_and_subfigure(custom_style):
     assert all(a.get_window_extent().x1 <= left.bbox.x1 + 1 for a in left.axes)
 
 
+def test_subfigure_leaves_room_for_the_panel_letter(custom_style):
+    slope, pvalue = _left_half_significant()
+    fig, ax0 = eofigs.new_figure("double", height_mm=120, layout="none")
+    ax0.remove()
+    left, _ = fig.subfigures(1, 2)
+    eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", subfigure=left)
+    (label,) = eofigs.label_panels([left.axes[0]])
+    fig.canvas.draw()
+    assert label.get_window_extent().y1 <= left.bbox.y1 + 0.5  # the letter is not cut off
+
+
 def test_aoi_outline_and_furniture(custom_style):
     slope, pvalue = _left_half_significant(rows=60, cols=60)
     aoi = gpd.GeoDataFrame(geometry=[box(505_000, 3_875_000, 520_000, 3_895_000)], crs=UTM)
