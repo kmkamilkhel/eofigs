@@ -3,6 +3,9 @@
 All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses [Semantic Versioning](https://semver.org/).
+Entries marked **Affects existing figures: re-render.** change figure output (what is drawn,
+the statistics, the layout) or caption text: figures made with an earlier version should be
+drawn again.
 
 ## [0.1.1] - 2026-11-09
 
@@ -23,6 +26,7 @@ tests, and no new features.
   missing on one side or repeated raise a `ValueError` that counts them. Arrays, and one
   labelled input with one array, are still paired by position.
   `fig.eofigs_layout["pairing"]` records the rule used.
+  **Affects existing figures: re-render.**
 - Boolean masks in a CRS other than the map's (for example EPSG:4326 MODIS, TerraClimate or
   ERA5 grids with missing pixels) crashed `trend_map`, `event_composite` and
   `study_area_map` overlays with `KeyError: 'bool'`. Masks are now reprojected as 0/1
@@ -35,6 +39,7 @@ tests, and no new features.
   from other tools are repaired), including compressed object streams.
 - `trend_map` accepts a p-value grid whose dimensions are in another order than the
   slope's (it is transposed), and refuses a p-value grid in another CRS with a clear error.
+  **Affects existing figures: re-render.**
 
 ### Changed
 
@@ -45,6 +50,7 @@ tests, and no new features.
   caption says "Significance from the supplied p-values (alpha = 0.05); eofigs applied no
   adjustment for multiple comparisons." The trend map and event composite pages explain
   both, with Wilks (2016).
+  **Affects existing figures: re-render.**
 - New dependency: pypdf (BSD licence), for the PDF font check.
 - The README opens with four figures from the Swat valley data; the gallery introduction
   points to the ICESat-2 DEM validation as a real accuracy assessment.
