@@ -170,6 +170,33 @@ def test_pdf_fonts_type42_pass_and_type3_fail(tmp_path, sans_font):
     assert font_result.status == "fail" and "Type 3" in font_result.message
 
 
+def test_pdf_with_unembedded_fonts_fails(tmp_path, sans_font):
+    fig, ax = _figure(sans_font)
+    ax.set_xlabel("Time (yr)")
+    with mpl.rc_context({"pdf.use14corefonts": True, "font.family": "sans-serif",
+                         "font.sans-serif": ["Helvetica"]}):  # fmt: skip
+        fig.savefig(tmp_path / "core14.pdf")
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "core14.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "fail"
+    assert "not embedded" in font_result.message and "Helvetica" in font_result.message
+
+
+def test_pdf_that_cannot_be_read_is_not_passed(tmp_path, sans_font):
+    fig, ax = _figure(sans_font)
+    ax.set_xlabel("Time (yr)")
+    eofigs.save_figure(fig, tmp_path / "ok.pdf", check=False)
+    data = (tmp_path / "ok.pdf").read_bytes()
+    cut = data.index(b"/FontFile2")
+    (tmp_path / "broken.pdf").write_bytes(data[:cut])  # font dictionaries, no font data
+    (font_result,) = [
+        r for r in eofigs.check_figure(tmp_path / "broken.pdf").results if r.name == "fonts"
+    ]
+    assert font_result.status == "warn"
+    assert "embedding could not be verified" in font_result.message
+
+
 def test_pdf_font_list_and_size(tmp_path, sans_font):
     fig, ax = _figure(sans_font)
     ax.set_xlabel("x")

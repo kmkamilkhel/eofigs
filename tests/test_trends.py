@@ -10,6 +10,7 @@ import pandas as pd
 import pytest
 import rioxarray  # noqa: F401
 import xarray as xr
+from geo_helpers import assert_hatching_on, geo_grid, hatched_area
 from shapely.geometry import box
 
 import eofigs
@@ -489,3 +490,55 @@ def test_layout_record_holds_plain_numbers(custom_style):
     fig = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", latitude_profile=True,
                            width="double")  # fmt: skip
     json.dumps(fig.eofigs_layout)  # serialisable: no numpy scalars
+
+
+# ----------------------------------------------------------------------------- 0.1.1 fixes
+
+
+def test_geographic_grid_with_gaps_and_excluded_pixels(custom_style):
+    values = np.tile(np.linspace(-0.01, 0.01, 40), (40, 1))
+    values[5:12, 5:12] = np.nan  # no data
+    slope = geo_grid(values)
+    excluded = xr.zeros_like(slope, dtype=bool)
+    excluded[25:33, 25:35] = True  # not vegetated
+    pvalue = xr.full_like(slope, 0.01)
+    fig = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi", exclude=excluded)
+    layout = fig.eofigs_layout
+    assert layout["no_data_percent"] == pytest.approx(100 * 49 / 1600, abs=0.01)
+    assert layout["excluded_percent"] == pytest.approx(100 * 80 / 1600, abs=0.01)
+    ax = fig.axes[0]
+    assert_hatching_on(ax, trends.NO_DATA_HATCH, slope, slice(5, 12), slice(5, 12))
+    assert_hatching_on(ax, trends.EXCLUDED_HATCH, slope, slice(25, 33), slice(25, 35))
+    gaps = hatched_area(ax, trends.NO_DATA_HATCH)
+    bare = hatched_area(ax, trends.EXCLUDED_HATCH)
+    assert gaps.intersection(bare).area == 0  # the two classes stay apart
+
+
+def test_transposed_pvalue_grid_is_accepted(custom_style):
+    values = np.random.default_rng(2).normal(0, 0.01, (20, 30))
+    slope = _grid(values)
+    p = np.full((20, 30), 0.5)
+    p[:, :15] = 0.01
+    pvalue = _grid(p)
+    reference = eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi").eofigs_layout
+    layout = eofigs.trend_map(slope=slope, pvalue=pvalue.transpose("x", "y"),
+                              variable="ndvi").eofigs_layout  # fmt: skip
+    assert layout["significant_percent"] == reference["significant_percent"] == 50.0
+
+
+def test_pvalue_in_another_crs_is_refused(custom_style):
+    slope = _grid(np.full((10, 10), 0.01))
+    pvalue = _grid(np.full((10, 10), 0.01), crs="EPSG:32642")
+    with pytest.raises(ValueError, match="CRS"):
+        eofigs.trend_map(slope=slope, pvalue=pvalue, variable="ndvi")
+
+
+def test_caption_states_the_test_assumptions(custom_style):
+    cube = _cube(np.full((10, 10), 0.01), noise=0.002)
+    caption = eofigs.trend_map(cube).eofigs_layout["caption"]
+    assert (
+        "Per-pixel Mann–Kendall tests assume serial independence and are not adjusted for "
+        "multiple comparisons." in caption
+    )
+    no_marks = eofigs.trend_map(cube, stipple=None).eofigs_layout["caption"]
+    assert "multiple comparisons" not in no_marks

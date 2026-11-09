@@ -733,3 +733,14 @@ def test_fit_raster_reads_urls(tmp_path, monkeypatch):
     assert opened == ["https://example.org/data/dem.tif?token=x"]
     assert out.name == "dem"
     assert out.shape[1] <= 160
+
+
+def test_boolean_overlay_in_geographic_coordinates(custom_style):
+    """A boolean overlay with a gap, in EPSG:4326, is reprojected without error (0.1.1)."""
+    dem = _dem()
+    mask = (_cover(dem) > 60).rio.reproject("EPSG:4326")  # float, NaN outside the source
+    mask = mask.fillna(0).astype(bool).rio.write_crs("EPSG:4326")
+    fig = eofigs.study_area_map(_tall_aoi(), overlay=mask, inset=None, legend=False)
+    overlay = [im for im in fig.axes[0].get_images() if im.get_cmap().N == 1][0]
+    shown = ~overlay.get_array().mask
+    assert 0.1 < shown.mean() < 0.6
