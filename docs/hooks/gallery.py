@@ -226,8 +226,11 @@ def _index(examples: list[Example]) -> str:
         "# Gallery\n\nEvery figure below is built from a script in the "
         "[examples folder](https://github.com/kmkamilkhel/eofigs/tree/main/examples) "
         "when this site is built, and checked with `eofigs.check_figure`. Each page has the "
-        "code, the caption with the data sources, and downloads of the PDF and a 600 dpi PNG.\n\n"
-        + _cards(examples, "")
+        "code, the caption with the data sources, and downloads of the PDF and a 600 dpi PNG. "
+        "For a real accuracy assessment, see "
+        "[Accuracy scatter: ICESat-2 against a DEM](accuracy_scatter_icesat2.md): 25 000 "
+        "ICESat-2 terrain heights against the Copernicus DEM in the Swat valley, with the "
+        "error by slope class.\n\n" + _cards(examples, "")
     )
 
 
