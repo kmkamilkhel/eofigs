@@ -10,8 +10,12 @@ During the docs build every example is run; for each one the hook adds to the si
 - ``gallery/files/<slug>.py``, ``.pdf`` and ``_600dpi.png`` (downloads).
 
 ``gallery/index.md`` and the marker ``<!-- gallery-grid -->`` on the home page get a grid
-of cards. An example that raises stops the build. The README must show every example's
-thumbnail (checked here, so a missing entry fails ``mkdocs build --strict``).
+of cards. An example that raises stops the build.
+
+The README opens with a grid of the examples in ``README_CARDS``. For each, the build writes
+``gallery/cards/<slug>.png``: a 4:3 card cropped to the figure's most telling part. The README
+must show and link every card, and every docs-site image it uses must be one the build makes
+(checked here, so a missing or stale entry fails ``mkdocs build --strict``).
 """
 
 from __future__ import annotations
@@ -43,6 +47,20 @@ SITE_URL = "https://kmkamilkhel.github.io/eofigs"
 GRID_MARKER = "<!-- gallery-grid -->"
 WEB_DPI = 200
 THUMB_SIZE = (480, 360)
+#: README card size (4:3).
+CARD_SIZE = (800, 600)
+#: README grid, row by row: example slug, figure (1-based, for examples with several), the
+#: crop as fractions of the figure (left, top, right, bottom), how a crop that is not 4:3 is
+#: made 4:3 ("figure": take more of the figure, then white; "white": add white), and the
+#: tile title.
+README_CARDS = (
+    ("study_area_swat", 1, (0.075, 0.0, 1.0, 0.52), "figure", "Study area map"),
+    ("trend_map_swat", 1, (0.12, 0.338, 0.86, 0.77), "figure", "Trend map"),
+    ("event_composite_swat", 1, (0.08, 0.0, 0.96, 0.66), "figure", "Event composite"),
+    ("accuracy_scatter_icesat2", 1, (0.555, 0.0, 1.0, 1.0), "white", "DEM accuracy (ICESat-2)"),
+    ("fdr_synthetic", 1, (0.33, 0.0, 1.0, 0.92), "figure", "False discovery rate"),
+    ("house_style", 2, (0.0, 0.0, 1.0, 0.75), "figure", "House style"),
+)
 _FONT_WARNING = r"Font .* is not installed"
 
 
@@ -115,6 +133,53 @@ def _thumbnail(images: list[bytes]) -> bytes:
     out = io.BytesIO()
     card.save(out, format="PNG", optimize=True)
     return out.getvalue()
+
+
+def _card(png: bytes, box: tuple[float, float, float, float], fill: str = "figure") -> bytes:
+    """Crop a figure to ``box`` (fractions), made 4:3 (see README_CARDS), as a CARD_SIZE PNG."""
+    from PIL import Image
+
+    with Image.open(io.BytesIO(png)) as image:
+        image = image.convert("RGB")
+        w, h = image.size
+        x0, y0, x1, y1 = box[0] * w, box[1] * h, box[2] * w, box[3] * h
+        aspect = CARD_SIZE[0] / CARD_SIZE[1]
+        if (x1 - x0) / (y1 - y0) > aspect:  # too wide: take more height
+            grow = (x1 - x0) / aspect - (y1 - y0)
+            y0, y1 = y0 - grow / 2, y1 + grow / 2
+            if fill == "figure":
+                shift = max(0.0, -y0) - max(0.0, y1 - h)
+                y0, y1 = y0 + shift, y1 + shift
+        else:  # too tall: take more width
+            grow = (y1 - y0) * aspect - (x1 - x0)
+            x0, x1 = x0 - grow / 2, x1 + grow / 2
+            if fill == "figure":
+                shift = max(0.0, -x0) - max(0.0, x1 - w)
+                x0, x1 = x0 + shift, x1 + shift
+        canvas = Image.new("RGB", (round(x1 - x0), round(y1 - y0)), "white")
+        bx0, by0, bx1, by1 = box[0] * w, box[1] * h, box[2] * w, box[3] * h
+        if fill == "white":  # only the box itself, the rest white
+            inner = (round(bx0), round(by0), round(bx1), round(by1))
+        else:
+            inner = (max(0, round(x0)), max(0, round(y0)), min(w, round(x1)), min(h, round(y1)))
+        canvas.paste(image.crop(inner), (inner[0] - round(x0), inner[1] - round(y0)))
+        canvas = canvas.resize(CARD_SIZE, Image.Resampling.LANCZOS)
+    out = io.BytesIO()
+    canvas.save(out, format="PNG", optimize=True)
+    return out.getvalue()
+
+
+def _readme_cards(examples: list[Example]) -> dict[str, bytes]:
+    """Make the README cards, keyed by file name under gallery/."""
+    by_slug = {ex.slug: ex for ex in examples}
+    cards = {}
+    for slug, figure, box, fill, _ in README_CARDS:
+        if slug not in by_slug:
+            raise PluginError(f"README_CARDS names {slug!r}, which is not a gallery example.")
+        ex = by_slug[slug]
+        name = slug if len(ex.panels) == 1 else f"{slug}_{figure}"
+        cards[f"cards/{slug}.png"] = _card(ex.files[f"files/{name}_600dpi.png"], box, fill)
+    return cards
 
 
 def _run(path: Path) -> Example:
@@ -234,19 +299,28 @@ def _index(examples: list[Example]) -> str:
     )
 
 
-def _check_readme(examples: list[Example]) -> None:
+def _check_readme(examples: list[Example], cards: dict[str, bytes]) -> None:
     readme = (ROOT / "README.md").read_text(encoding="utf-8")
-    for ex in examples:
-        thumb = f"{SITE_URL}/gallery/thumbs/{ex.slug}.png"
-        if thumb not in readme:
-            log.warning("README.md has no gallery thumbnail for %r (%s).", ex.slug, thumb)
+    for slug, _, _, _, title in README_CARDS:
+        image = f"{SITE_URL}/gallery/cards/{slug}.png"
+        page = f"{SITE_URL}/gallery/{slug}/"
+        if image not in readme or page not in readme:
+            log.warning("README.md is missing the %r card (%s linking to %s).", title, image, page)
+    made = {f"{SITE_URL}/gallery/{name}" for ex in examples for name in ex.files}
+    made |= {f"{SITE_URL}/gallery/{name}" for name in cards}
+    for url in re.findall(re.escape(SITE_URL) + r"/gallery/[^\s\"')<>]+\.png", readme):
+        if url not in made:
+            log.warning("README.md shows %s, which the docs build does not make.", url)
 
 
 def on_files(files: Files, config) -> Files:
     """Run the examples and add the gallery pages, images and downloads."""
     examples = _examples()
-    _check_readme(examples)
+    cards = _readme_cards(examples)
+    _check_readme(examples, cards)
     files.append(File.generated(config, "gallery/index.md", content=_index(examples)))
+    for name, data in cards.items():
+        files.append(File.generated(config, f"gallery/{name}", content=data))
     for ex in examples:
         files.append(File.generated(config, f"gallery/{ex.slug}.md", content=_page(ex)))
         for name, data in ex.files.items():
