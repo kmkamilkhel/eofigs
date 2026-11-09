@@ -29,6 +29,8 @@ __all__ = ["add_inset", "add_north_arrow", "add_scale_bar", "study_area_map"]
 OVERLAY_COLOUR = "#009E73"
 #: Overlay opacity: the hillshade shows through, so slopes stay readable under the overlay.
 OVERLAY_ALPHA = 0.75
+#: Value outside the source grid when a boolean mask is reprojected as 0/1 bytes.
+MASK_NODATA = 255
 ELEVATION_ALPHA = 0.45
 #: Elevation colours under an overlay: the light, low-chroma half of cmcrameri lapaz.
 RELIEF_RANGE = ("cmc.lapaz", 0.5, 1.0)
@@ -744,15 +746,26 @@ def _add_graticule(ax, projection, extent, size: float) -> Any:
 
 
 def _prepare_raster(data: Any, crs, extent, width_mm, height_mm, dpi, kind=None):
-    """Fit a raster to the print size, reproject it to the map CRS and clip to the extent."""
+    """Fit a raster to the print size, reproject it to the map CRS and clip to the extent.
+
+    Boolean masks are reprojected as 0/1 bytes with 255 outside the source grid; the
+    values come back as floats with NaN there, so masks keep 1, 0 and "no value" apart.
+    """
     from rasterio.enums import Resampling
 
     from eofigs.raster import fit_raster
 
     fitted = fit_raster(data, width_mm=width_mm, height_mm=height_mm, dpi=dpi, kind=kind)
     if fitted.rio.crs is None or fitted.rio.crs != crs:
+        nodata = np.nan
+        if fitted.dtype == bool:  # GDAL has no boolean type: masks travel as 0/1 bytes
+            # a fill value carried over from a float source (often NaN) does not apply
+            fitted = fitted.astype("uint8").rio.write_nodata(None, encoded=False)
+            fitted.encoding.pop("_FillValue", None)
+            nodata = MASK_NODATA
+            kind = "mask"
         resampling = Resampling.nearest if kind in ("mask", "categorical") else Resampling.bilinear
-        fitted = fitted.rio.reproject(crs, resampling=resampling, nodata=np.nan)
+        fitted = fitted.rio.reproject(crs, resampling=resampling, nodata=nodata)
     x0, x1, y0, y1 = extent
     pad_x = abs(float(fitted.rio.resolution()[0])) * 2
     pad_y = abs(float(fitted.rio.resolution()[1])) * 2
@@ -1385,8 +1398,12 @@ def _draw_dem(ax, dem, crs, extent, map_w, map_h, dpi, projection, light=False):
 
 def _draw_overlay(ax, overlay, crs, extent, map_w, map_h, dpi, projection, threshold, colour):
     values, img_extent, data = _prepare_raster(overlay, crs, extent, map_w, map_h, dpi)
-    if data.dtype == bool:
-        mask = values.astype(bool)
+    unreduced_mask = data.dtype == bool or (
+        data.dtype == np.uint8 and np.dtype(getattr(overlay, "dtype", "f8")) == np.bool_
+    )  # a reduced mask is a fraction of True pixels, compared with the threshold below
+    if unreduced_mask:
+        with np.errstate(invalid="ignore"):
+            mask = values >= 0.5  # 0/1 values; NaN outside the source grid is not shown
     else:
         mask = _overlay_mask(values, data.attrs, threshold)
     shown = np.ma.masked_where(~mask, np.ones_like(values))

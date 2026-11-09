@@ -3,9 +3,10 @@
 import numpy as np
 import pyproj
 import rioxarray  # noqa: F401
+import shapely
 import xarray as xr
 from shapely.geometry import box
-from shapely.ops import transform, unary_union
+from shapely.ops import unary_union
 
 #: Approximate length of one degree of latitude (m).
 DEGREE_M = 111_000
@@ -34,8 +35,12 @@ def patch_on_map(grid, rows, cols, crs):
     dy = abs(float(grid.y[1] - grid.y[0])) / 2
     xs, ys = grid.x.values[cols], grid.y.values[rows]
     patch = box(xs.min() - dx, ys.min() - dy, xs.max() + dx, ys.max() + dy).segmentize(0.01)
-    to_map = pyproj.Transformer.from_crs(grid.rio.crs, crs, always_xy=True).transform
-    return transform(to_map, patch), 2 * max(dx, dy) * DEGREE_M
+    to_map = pyproj.Transformer.from_crs(grid.rio.crs, crs, always_xy=True)
+
+    def project(coords):
+        return np.column_stack(to_map.transform(coords[:, 0], coords[:, 1]))
+
+    return shapely.transform(patch, project), 2 * max(dx, dy) * DEGREE_M
 
 
 def assert_hatching_on(ax, hatch, grid, rows, cols):
