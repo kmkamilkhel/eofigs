@@ -114,7 +114,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT
 
 If you use eofigs, please cite it. The software is archived on Zenodo:
 [doi:10.5281/zenodo.24053760](https://doi.org/10.5281/zenodo.24053760) covers all versions, and each release
-has its own DOI (v0.1.1: [doi:10.5281/zenodo.24084780](https://doi.org/10.5281/zenodo.24084780)). The metadata are in
+has its own DOI (v0.2.0: [doi:10.5281/zenodo.24143866](https://doi.org/10.5281/zenodo.24143866)). The metadata are in
 [CITATION.cff](CITATION.cff); the
 [citation page](https://kmkamilkhel.github.io/eofigs/citation/) has APA and BibTeX entries.
 
