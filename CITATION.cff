@@ -2,8 +2,8 @@ cff-version: 1.2.0
 message: "If you use this software, please cite it using these metadata."
 title: "eofigs: analysis-aware, publication-ready figures for Earth observation research"
 type: software
-version: 0.1.1
-date-released: "2026-11-09"
+version: 0.2.0
+date-released: "2026-11-11"
 doi: 10.5281/zenodo.24053760
 abstract: >-
   eofigs turns Earth observation analysis outputs (rasters, time series and validation
@@ -11,8 +11,9 @@ abstract: >-
   size. It provides journal presets with one-call export to vector PDF and 600 dpi raster
   files, a figure check (size, resolution, smallest font, font embedding, colour-blind
   safety), a variable library with fixed colour maps and units, print-size raster handling,
-  Theil-Sen and Mann-Kendall trend statistics, and recipe figures for study area maps,
-  trend maps with significance, event composites and accuracy scatters.
+  Theil-Sen and Mann-Kendall trend statistics (with a seasonal test and false discovery rate
+  control), and recipe figures for study area maps, trend maps with significance, event
+  composites and accuracy scatters.
 authors:
   - family-names: Mehmood
     given-names: Kaleem

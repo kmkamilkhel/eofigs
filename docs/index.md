@@ -25,5 +25,5 @@ Start with the [Installation](installation.md) and the [Quickstart](quickstart.m
 | Version | Content |
 |---|---|
 | v0.1 | Journal styles and export, figure check, figure set, variable library, print-size raster handling, trend statistics; study area map, trend map, event composite and accuracy scatter recipes |
-| v0.2 | Burn severity, recovery and disturbance recipes; SHAP and partial dependence styling; confusion matrix; Google Earth Engine input through Xee |
-| v0.3 | R package with matching function names |
+| v0.2 | False discovery rate control of significance marks; seasonal Mann–Kendall test |
+| Planned | Burn severity, recovery, disturbance and divergence recipes; SHAP and partial dependence styling; confusion matrix; Google Earth Engine input through Xee; R package with matching function names, after the Python API is stable |

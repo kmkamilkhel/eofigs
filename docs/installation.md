@@ -40,9 +40,9 @@ tells you which font was used. On Linux: `sudo apt install fonts-liberation font
 ## Docker
 
 An image with eofigs and its geospatial stack is published on GitHub Container Registry for
-Linux on amd64 and arm64. Each release has its own tag (`0.1.1`), `latest` is the newest
+Linux on amd64 and arm64. Each release has its own tag (`0.2.0`), `latest` is the newest
 release and `dev` follows the main branch:
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.1 python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.2.0 python script.py
 ```
