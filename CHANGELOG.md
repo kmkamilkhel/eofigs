@@ -7,7 +7,10 @@ Entries marked **Affects existing figures: re-render.** change figure output (wh
 the statistics, the layout) or caption text: figures made with an earlier version should be
 drawn again.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-11
+
+Statistical tests behind the significance marks: false discovery rate control and the
+seasonal Mann–Kendall test, plus two fixes that change existing trend maps.
 
 ### Added
 
@@ -42,8 +45,16 @@ drawn again.
 
 ### Changed
 
+- The README opens with a grid of six gallery figures, each linking to its gallery page.
+  The docs build makes the cards from the gallery figures and fails when the README does
+  not show and link every card.
+- Roadmap: features are listed as released or planned, without version numbers for the
+  planned ones.
 - The citation page and the README give the version DOI of 0.1.1
   (10.5281/zenodo.24084780).
+- Continuous integration: the install check on macOS still runs for every pull request but
+  is no longer required to merge, because GitHub at times assigns no macOS runner to it;
+  the macOS test jobs remain required.
 
 ## [0.1.1] - 2026-11-09
 
@@ -213,6 +224,6 @@ figures: study area map, trend map, event composite and accuracy scatter.
 - Code of conduct (Contributor Covenant 2.1), issue templates, pull request template.
 - Citation file validation and coverage total in continuous integration.
 
-[Unreleased]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.1...HEAD
+[0.2.0]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kmkamilkhel/eofigs/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kmkamilkhel/eofigs/releases/tag/v0.1.0

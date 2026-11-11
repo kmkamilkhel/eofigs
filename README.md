@@ -67,23 +67,20 @@ More in the [quickstart](https://kmkamilkhel.github.io/eofigs/quickstart/) and t
 ## Run with Docker
 
 A container image with eofigs and its geospatial stack (cartopy, rioxarray, geopandas, fonts)
-is published on GitHub Container Registry for each release (`0.1.1`, `latest`; `dev` follows
+is published on GitHub Container Registry for each release (`0.2.0`, `latest`; `dev` follows
 the main branch):
 
 ```bash
-docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.1.1 python script.py
+docker run --rm -v "$PWD":/work ghcr.io/kmkamilkhel/eofigs:0.2.0 python script.py
 ```
 
 ## Roadmap
 
-Available in v0.1: `set_style`, `style`, `new_figure`, `label_panels`,
+Available now: `set_style`, `style`, `new_figure`, `label_panels`,
 `save_figure`, `check_figure`, `cvd_preview`, `tidy_axes`, `palettes`, `variable`,
-`register_variable`, `fit_raster`, `trend`, `figure_set`, `study_area_map`,
+`register_variable`, `fit_raster`, `trend`, `stats.fdr_mask`, `figure_set`, `study_area_map`,
 `add_north_arrow`, `add_scale_bar`, `add_inset`, `trend_map`, `event_composite` and
 `accuracy_scatter`.
-
-
-**v0.1**
 
 | Function | Purpose |
 |---|---|
@@ -93,16 +90,19 @@ Available in v0.1: `set_style`, `style`, `new_figure`, `label_panels`,
 | `figure_set` | Manuscript figure set with automatic Fig/FigS numbering and a manifest |
 | `variable`, `register_variable` | Variable library: colour map, symbol, unit, range |
 | `fit_raster` | Reduce large rasters to the pixels the printed figure needs |
-| `trend` | Theil–Sen slope with Mann–Kendall test on a time-series cube |
+| `trend` | Theil–Sen slope with Mann–Kendall test on a time-series cube; seasonal test with the Hirsch–Slack correction for monthly data |
+| `stats.fdr_mask` | Benjamini–Hochberg false discovery rate control for any array of p-values |
 | `study_area_map` | DEM hillshade, overlay, labelled points, locator inset, graticule, north arrow to true north, scale bar, legend; automatic layout |
-| `trend_map` | Trend map with zero-centred colours, significance dots, optional latitude profile |
-| `event_composite` | Before/during/after anomaly maps with a composite time series |
+| `trend_map` | Trend map with zero-centred colours, significance dots (optionally with false discovery rate control), optional latitude profile |
+| `event_composite` | Before/during/after anomaly maps with a composite time series; optional false discovery rate control |
 | `accuracy_scatter` | Observed against predicted values with the 1:1 line, a fitted line (Piñeiro et al. 2008), R², RMSE, NMAD and bias, density colours or groups |
 
-**v0.2**: burn severity, recovery and disturbance recipes, SHAP and partial dependence styling,
-confusion matrix, Google Earth Engine input through Xee at print scale.
+**Released in 0.2**: false discovery rate control of significance marks and the seasonal
+Mann–Kendall test.
 
-**v0.3**: R package with matching function names.
+**Planned**: burn severity, recovery, disturbance and divergence recipes, SHAP and partial
+dependence styling, confusion matrix, Google Earth Engine input through Xee at print scale;
+an R package with matching function names, after the Python API is stable.
 
 ## Contributing
 

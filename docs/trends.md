@@ -110,7 +110,7 @@ so any series length works. The work grows with the number of pairs, n(n−1)/2,
 Peak memory stayed near 400 MB for every size. For large cubes pass a dask-backed array
 (for example `cube.chunk({"x": 500, "y": 500})`); the blocks then run in parallel. Annual
 series are much faster: 25 steps have 300 pairs instead of 44 850. For long monthly series,
-consider aggregating to annual values now; a seasonal Mann–Kendall test is planned for v0.2.
+use the seasonal test (see [Seasonal data](#seasonal-data)) or aggregate to annual values.
 
 ## References
 
