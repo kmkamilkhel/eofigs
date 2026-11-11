@@ -20,7 +20,7 @@ from eofigs.styling import label_panels, new_figure, set_style, style, tidy_axes
 from eofigs.trends import trend_map
 from eofigs.variables import Variable, register_variable, variable
 
-__version__ = "0.2.0"
+__version__ = "0.3.0.dev0"
 
 __all__ = [
     "CheckReport",
