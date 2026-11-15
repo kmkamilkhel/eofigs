@@ -1,6 +1,8 @@
+import logging
 import warnings
 
 import matplotlib as mpl
+import matplotlib.pyplot as plt
 import pytest
 
 import eofigs
@@ -16,7 +18,8 @@ def test_set_style_applies_journal_settings(sans_font):
     assert rc["xtick.labelsize"] == 8  # never below the journal minimum
     assert rc["pdf.fonttype"] == 42
     assert rc["savefig.dpi"] == 600
-    assert rc["mathtext.fontset"] == "dejavusans"
+    assert rc["mathtext.fontset"] == "custom"
+    assert rc["mathtext.rm"] == sans_font
     assert [c.upper() for c in rc["axes.prop_cycle"].by_key()["color"]] == list(OKABE_ITO)
     assert style_module.current_journal() == "springer"
 
@@ -32,8 +35,73 @@ def test_serif_uses_stix_mathtext():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)  # Times New Roman may be missing
         eofigs.set_style("elsevier", font="serif")
-    assert mpl.rcParams["mathtext.fontset"] == "stix"
+    assert mpl.rcParams["mathtext.fontset"] == "custom"
+    assert mpl.rcParams["mathtext.fallback"] == "stix"
     assert style_module._STATE["font_family"] == "serif"
+
+
+def test_mathtext_uses_the_text_font_and_weight(sans_font):
+    eofigs.set_style("custom", font=sans_font, bold=True)
+    assert mpl.rcParams["mathtext.fontset"] == "custom"
+    assert mpl.rcParams["mathtext.rm"] == f"{sans_font}:bold"
+    assert mpl.rcParams["mathtext.it"] == f"{sans_font}:italic:bold"
+    assert mpl.rcParams["mathtext.fallback"] == "stixsans"
+    assert mpl.rcParams["mathtext.cal"] == f"{sans_font}:bold"
+    eofigs.set_style("custom", font=sans_font)
+    assert mpl.rcParams["mathtext.rm"] == sans_font
+    assert style_module._fc_escape("Source-Sans:3") == r"Source\-Sans\:3"
+
+
+def test_bold_mathtext_prints_no_font_warnings(sans_font, caplog):
+    from matplotlib import font_manager, mathtext
+
+    # clear the font and mathtext caches so the fallback fonts are looked up again
+    font_manager.fontManager._findfont_cached.cache_clear()
+    parse_cache = getattr(mathtext.MathTextParser, "_parse_cached", None)
+    if parse_cache is not None:
+        parse_cache.cache_clear()
+    with eofigs.style("custom", font=sans_font, bold=True):
+        fig, ax = eofigs.new_figure("single", height_mm=40)
+        ax.set_xlabel(r"NIR$_{v}$ trend (10$^{-3}$ decade$^{-1}$) $\alpha$ km$^{2}$")
+        with caplog.at_level(logging.DEBUG, logger="matplotlib.font_manager"):
+            fig.canvas.draw()
+    findfont = [r.getMessage() for r in caplog.records if "Failed to find font" in r.getMessage()]
+    assert findfont == []
+    plt.close(fig)
+
+
+def test_missing_user_font_still_warns(sans_font, caplog):
+    # eofigs's own warning when the requested text font is not installed
+    with pytest.warns(UserWarning, match="NoSuchFont"):
+        eofigs.set_style("custom", font="NoSuchFont", bold=True)
+    # matplotlib's notice for a missing family requested directly is not filtered
+    fig, ax = eofigs.new_figure("single", height_mm=40)
+    ax.text(0.5, 0.5, "label", fontfamily="NoSuchFont")
+    with caplog.at_level(logging.WARNING, logger="matplotlib.font_manager"):
+        fig.canvas.draw()
+    assert any("NoSuchFont" in r.getMessage() for r in caplog.records)
+    plt.close(fig)
+    eofigs.set_style(None)
+
+
+def test_filter_drops_only_builtin_math_fallback_notices():
+    keep = style_module._MathFallbackFilter().filter
+
+    def record(message):
+        return logging.LogRecord(
+            "matplotlib.font_manager", logging.WARNING, "", 0, message, None, None
+        )
+
+    for name in ("cmex10", "cmmi10", "STIXSizeFiveSym", "STIXGeneral", "DejaVu Sans Display"):
+        assert not keep(
+            record(f"findfont: Failed to find font weight bold for {name}, now using 400.")
+        )
+    for message in (
+        "findfont: Failed to find font weight bold for NoSuchFont, now using 400.",
+        "findfont: Failed to find font weight bold for Arial Narrow, now using 400.",
+        "findfont: Font family 'NoSuchFont' not found.",
+    ):
+        assert keep(record(message))
 
 
 def test_set_style_none_restores_previous_settings(sans_font):

@@ -16,14 +16,25 @@ drawn again.
   "NIRv trend (10⁻³ decade⁻¹)" with ticks −5 to 5; the latitude profile uses the same
   factor). If neighbouring tick labels still touch at the printed size, the colour bar
   drops to three ticks. The caption keeps the true values; the record gives the factor as
-  `colourbar_scale` (#37). **Affects existing figures: re-render.**
+  `colourbar_scale` (#37). Re-render trend maps and event composites whose colour-bar
+  limits are below 0.01, or whose colour-bar tick labels overlapped. The first now show a
+  power-of-ten factor in the label; the second show three ticks instead of five. Other
+  figures do not need to be drawn again. **Affects existing figures: re-render.**
+- `set_style` sets mathtext to the chosen text font and weight (`mathtext.fontset`
+  "custom", with `rm`, `it`, `bf`, `sf` and `cal` mapped to the text font), so units,
+  subscripts and symbols match the text. With `bold=True`, matplotlib no longer prints
+  "findfont: Failed to find font weight bold" notices for its built-in mathtext fallback
+  fonts; notices about any other font, including a missing font you asked for, are kept
+  (#38).
 
 ### Added
 
-- `check_figure` warns when the tick labels of a colour bar touch or overlap.
+- `check_figure` warns when the tick labels of a colour bar touch or overlap (#37).
 
 ### Changed
 
+- Units and subscripts are now set in the text font and weight; glyphs may shift
+  slightly. No change to what figures show (#38).
 - The citation page and the README give the version DOI of 0.2.0
   (10.5281/zenodo.24143866).
 
