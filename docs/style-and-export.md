@@ -34,7 +34,7 @@ fonts embedded in the PDF.
 | Font | the journal's preferred family; `font="serif"`, `"sans-serif"` or a font name |
 | Fallback fonts | Times New Roman → Liberation Serif → TeX Gyre Termes; Arial → Liberation Sans → Arimo (a warning names the substitute) |
 | Sizes | journal base size (8 pt), tick labels 1 pt smaller but never below the journal minimum |
-| Units and symbols | matplotlib mathtext, matched to the text font (STIX for serif, DejaVu Sans for sans-serif) |
+| Units and symbols | matplotlib mathtext in the text font and weight (`mathtext.fontset` "custom"); glyphs the font lacks come from STIX (serif) or STIX Sans (sans-serif) |
 | Bold | `bold=True` for Times New Roman Bold–style figures |
 | Colours | Okabe–Ito for lines and markers; cmcrameri `batlow` for images |
 | Panel labels | `labels="(a)"`, bold; `"a"`, `"(A)"`, `"A"`, `"a)"` or `None` |

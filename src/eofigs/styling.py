@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 import math
+import re
 import string
 import warnings
 from collections.abc import Iterator, Sequence
@@ -75,6 +77,54 @@ def _resolve_font(font: str | None, default_family: str) -> tuple[str, str]:
                 )
             return name, family_key
     return "DejaVu Sans", "sans-serif"  # always shipped with matplotlib
+
+
+def _fc_escape(name: str) -> str:
+    """Escape a family name for a fontconfig pattern ("-" and ":" are separators there)."""
+    return re.sub(r"([-:\\])", r"\\\1", name)
+
+
+def _mathtext_params(name: str, family: str, bold: bool) -> dict[str, Any]:
+    """Mathtext in the text font and weight: units, subscripts and symbols match the text.
+
+    Glyphs the text font lacks come from STIX (serif) or STIX Sans (sans-serif).
+    """
+    font = _fc_escape(name)
+    weight = ":bold" if bold else ""
+    return {
+        "mathtext.fontset": "custom",
+        "mathtext.rm": f"{font}{weight}",
+        "mathtext.sf": f"{font}{weight}",
+        "mathtext.it": f"{font}:italic{weight}",
+        "mathtext.bf": f"{font}:bold",
+        "mathtext.default": "regular",
+        "mathtext.fallback": "stix" if family == "serif" else "stixsans",
+    }
+
+
+#: Fonts matplotlib loads for mathtext fallbacks and large delimiters; none has a bold face.
+_MATH_FALLBACK = re.compile(
+    r"Failed to find font weight \w+ for "
+    r"(cm\w+|STIX\w*|DejaVu Sans Display|DejaVu Sans Mono|DejaVu Serif Display)"
+)
+
+
+class _MathFallbackFilter(logging.Filter):
+    """Drop findfont notices about the bold weight of mathtext fallback fonts.
+
+    With bold text, matplotlib asks for the bold face of every font it loads for mathtext
+    (Computer Modern, STIX size fonts), which do not have one; it then uses the regular
+    face. The notices are expected and carry no information for the figure.
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return not _MATH_FALLBACK.search(record.getMessage())
+
+
+def _quiet_math_fallback_lookups() -> None:
+    log = logging.getLogger("matplotlib.font_manager")
+    if not any(isinstance(f, _MathFallbackFilter) for f in log.filters):
+        log.addFilter(_MathFallbackFilter())
 
 
 def set_style(
@@ -156,6 +206,7 @@ def set_style(
     small = max(size - 1, preset.min_font_pt)
     weight = "bold" if bold else "normal"
 
+    _quiet_math_fallback_lookups()
     mpl.rcParams.update(
         {
             "font.family": [name],
@@ -172,8 +223,7 @@ def set_style(
             "legend.fontsize": small,
             "legend.title_fontsize": size,
             "legend.frameon": False,
-            "mathtext.fontset": "stix" if family == "serif" else "dejavusans",
-            "mathtext.default": "regular",
+            **_mathtext_params(name, family, bold),
             "axes.unicode_minus": True,
             "axes.prop_cycle": cycler(color=list(OKABE_ITO)),
             "image.cmap": "cmc.batlow",

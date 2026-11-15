@@ -9,6 +9,13 @@ drawn again.
 
 ## [Unreleased]
 
+### Fixed
+
+- `set_style` sets mathtext to the chosen text font and weight (`mathtext.fontset`
+  "custom", with `rm`, `it`, `bf` and `sf` mapped to the text font), so units, subscripts
+  and symbols match the text. With `bold=True`, matplotlib no longer prints "findfont:
+  Failed to find font weight bold" notices for its mathtext fallback fonts (#38).
+
 ### Changed
 
 - The citation page and the README give the version DOI of 0.2.0
