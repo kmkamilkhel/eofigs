@@ -118,6 +118,7 @@ Elsevier. Vector PDFs are not affected.
 | Colour-blind safety | line, marker, bar and fill colours differ by CIEDE2000 ≥ 10 in normal vision and ≥ 6 under simulated protan, deutan and tritan vision (Machado et al. 2009); close pairs are a warning, because markers, line styles or direct labels can separate them |
 | Colour maps | sequential maps need monotonic lightness, diverging maps monotonic lightness on each side of the centre, cyclic and categorical maps are exempt; rainbow-type maps (jet, rainbow, hsv, turbo, ...) fail |
 | Ticks | only with `set_style(max_ticks=...)`: at most that many tick labels per axis (warning otherwise; `tidy_axes` fixes it) |
+| Colour-bar ticks | neighbouring tick labels of a colour bar must not touch or overlap as rendered (warning otherwise) |
 
 `cvd_preview` shows the figure as seen with colour-vision deficiencies; see
 [Colours](colours.md).

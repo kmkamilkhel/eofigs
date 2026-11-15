@@ -747,3 +747,52 @@ def test_monthly_data_without_seasonal_warns_and_annual_does_not(custom_style):
     slope = _grid(np.full((8, 8), 0.01))
     with pytest.raises(ValueError, match="seasonal applies to data="):
         eofigs.trend_map(slope=slope, variable="ndvi", seasonal="month")
+
+
+def _limit_grid(limit):
+    return _grid(np.linspace(-limit, limit, 60)[None, :].repeat(60, 0))
+
+
+def _colour_bar(fig):
+    return [a for a in fig.axes if getattr(a, "_colorbar", None) is not None][0]
+
+
+def test_small_limits_are_scaled_into_the_label(sans_font):
+    with eofigs.style("custom", font=sans_font, bold=True):
+        fig = eofigs.trend_map(slope=_limit_grid(0.006), variable="nirv", exclude=None,
+                               width="single", limits=0.006)  # fmt: skip
+        fig.canvas.draw()
+        bar = _colour_bar(fig)
+        assert "10$^{-3}$" in bar.get_xlabel()
+        assert [t.get_text() for t in bar.get_xticklabels()] == ["−5", "−2.5", "0", "2.5", "5"]
+        assert fig.eofigs_layout["colourbar_scale"] == -3
+        assert "±0.006" in fig.eofigs_layout["caption"]  # the caption keeps the true values
+        report = eofigs.check_figure(fig)
+    (result,) = [r for r in report.results if r.name == "colour-bar ticks"]
+    assert result.status == "pass"
+
+
+def test_crowded_colour_bar_ticks_are_thinned(sans_font):
+    with eofigs.style("custom", font=sans_font, bold=True):
+        crowded = eofigs.trend_map(slope=_limit_grid(0.0375), variable="nirv", exclude=None,
+                                   width="single", limits=0.0375)  # fmt: skip
+        roomy = eofigs.trend_map(slope=_limit_grid(0.08), variable="nirv", exclude=None,
+                                 width="single", limits=0.08)  # fmt: skip
+        for fig in (crowded, roomy):
+            fig.canvas.draw()
+            assert fig.eofigs_layout["colourbar_scale"] == 0
+        assert len(_colour_bar(crowded).get_xticks()) == 3
+        assert len(_colour_bar(roomy).get_xticks()) == 5
+        assert not trends.tick_labels_overlap(_colour_bar(crowded), "x")
+
+
+def test_profile_axis_uses_the_colour_bar_scale(custom_style):
+    lat = np.linspace(35.9, 34.5, 141)
+    lon = np.linspace(72.0, 72.8, 81)
+    values = np.repeat(((lat - 35.2) / 300)[:, None], lon.size, axis=1)  # about ±0.002
+    da = xr.DataArray(values, dims=("y", "x"), coords={"y": lat, "x": lon}).rio.write_crs(4326)
+    fig = eofigs.trend_map(slope=da, variable="ndvi", latitude_profile=True, width="double")
+    fig.canvas.draw()
+    prof = [a for a in fig.axes if a.get_xlabel().startswith("Median")][0]
+    assert "10$^{-3}$" in prof.get_xlabel()
+    assert all(len(t.get_text()) <= 4 for t in prof.get_xticklabels())

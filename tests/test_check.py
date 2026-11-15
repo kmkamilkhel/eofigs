@@ -343,3 +343,23 @@ def test_fill_between_envelopes_are_not_categorical_classes(sans_font):
         ax.add_patch(Rectangle((0, 0), 0.1, 0.1, color="#B8BDBD"))
         names = [r.name for r in eofigs.check_figure(fig).warnings]
         assert "colour-blind safety" in names
+
+
+def test_overlapping_colour_bar_ticks_warn(sans_font):
+    fig, ax = _figure(sans_font)
+    image = ax.imshow(np.linspace(-0.01, 0.01, 100).reshape(10, 10), cmap="RdBu_r")
+    bar = fig.colorbar(image, ax=ax, orientation="horizontal")
+    bar.set_ticks(np.linspace(-0.01, 0.01, 11))
+    bar.ax.xaxis.set_major_formatter(mpl.ticker.FuncFormatter(lambda v, _: f"{v:.4f}"))
+    report = eofigs.check_figure(fig)
+    (result,) = [r for r in report.results if r.name == "colour-bar ticks"]
+    assert result.status == "warn"
+    bar.set_ticks([-0.01, 0, 0.01])
+    (result,) = [r for r in eofigs.check_figure(fig).results if r.name == "colour-bar ticks"]
+    assert result.status == "pass"
+
+
+def test_no_colour_bar_no_colour_bar_check(sans_font):
+    fig, ax = _figure(sans_font)
+    ax.plot([0, 1], [0, 1])
+    assert "colour-bar ticks" not in {r.name for r in eofigs.check_figure(fig).results}
