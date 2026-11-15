@@ -30,7 +30,7 @@ from eofigs._colour import (
     to_srgb,
 )
 from eofigs._presets import MM_PER_INCH, Journal, check_art, get_journal
-from eofigs.styling import current_journal, current_max_ticks
+from eofigs.styling import current_journal, current_max_ticks, tick_labels_overlap
 
 Status = Literal["pass", "warn", "fail"]
 
@@ -101,7 +101,7 @@ def check_figure(
     For a live figure the checks are: printed size, resolution, smallest font size,
     fonts in use, colour-blind safety of categorical colours, colour maps, and, when a
     tick limit is set with ``set_style(max_ticks=...)``, the number of tick labels per
-    axis. For
+    axis; colour bars are checked for touching or overlapping tick labels. For
     files: size and resolution (raster files), size and embedded fonts (PDF).
 
     Parameters
@@ -248,7 +248,33 @@ def _check_live(
         results.append(overlay)
     if max_ticks is not None:
         results.append(_tick_result(fig, max_ticks))
+    bars = _colourbar_tick_result(fig)
+    if bars is not None:
+        results.append(bars)
     return results
+
+
+def _colourbar_tick_result(fig: Figure) -> CheckResult | None:
+    """Warn when the tick labels of a colour bar touch or overlap (figure already drawn)."""
+    bars = [
+        ax for ax in fig.axes if getattr(ax, "_colorbar", None) is not None and ax.get_visible()
+    ]
+    if not bars:
+        return None
+    crowded = []
+    for ax in bars:
+        which = "x" if ax._colorbar.orientation == "horizontal" else "y"
+        if tick_labels_overlap(ax, which, draw=False):
+            label = ax._colorbar.ax.get_xlabel() if which == "x" else ax._colorbar.ax.get_ylabel()
+            crowded.append(label.strip() or f"axes {fig.axes.index(ax) + 1}")
+    if crowded:
+        return CheckResult(
+            "colour-bar ticks",
+            "warn",
+            f"Colour-bar tick labels overlap: {', '.join(crowded[:4])}. Use fewer ticks, or "
+            "scale the values and put the factor in the label (as trend_map does).",
+        )
+    return CheckResult("colour-bar ticks", "pass", "Colour-bar tick labels do not overlap.")
 
 
 def _font_size_result(texts: list[Text], preset: Journal) -> CheckResult:

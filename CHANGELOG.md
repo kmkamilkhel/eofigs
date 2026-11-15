@@ -9,6 +9,19 @@ drawn again.
 
 ## [Unreleased]
 
+### Fixed
+
+- `trend_map` and `event_composite`: colour-bar limits below 0.01 are written as a power
+  of ten times a short number, with the factor in the colour-bar label (for example
+  "NIRv trend (10⁻³ decade⁻¹)" with ticks −5 to 5; the latitude profile uses the same
+  factor). If neighbouring tick labels still touch at the printed size, the colour bar
+  drops to three ticks. The caption keeps the true values; the record gives the factor as
+  `colourbar_scale` (#37). **Affects existing figures: re-render.**
+
+### Added
+
+- `check_figure` warns when the tick labels of a colour bar touch or overlap.
+
 ### Changed
 
 - The citation page and the README give the version DOI of 0.2.0

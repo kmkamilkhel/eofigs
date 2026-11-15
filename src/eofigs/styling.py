@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import itertools
 import math
 import string
 import warnings
@@ -448,6 +449,30 @@ def tidy_axes(*items: Any, max_ticks: int | None = None) -> None:
                 _tidy_axis(axis, max_ticks)
         else:
             tidy_axes(*np.ravel(np.asarray(item, dtype=object)), max_ticks=max_ticks)
+
+
+def tick_labels_overlap(ax: Axes, which: str = "x", gap_pt: float = 1.5, draw: bool = True) -> bool:
+    """Return True when neighbouring rendered tick labels of an axis touch or overlap.
+
+    With ``draw=True`` the figure is drawn once (without output) to place the labels;
+    ``gap_pt`` is the smallest free space required between two labels.
+    """
+    root = ax.figure
+    root = getattr(root, "figure", None) or root  # the top figure for a subfigure
+    if draw:
+        root.draw_without_rendering()
+    renderer = root.canvas.get_renderer()
+    axis = ax.xaxis if which == "x" else ax.yaxis
+    boxes = [t.get_window_extent(renderer) for t in axis.get_ticklabels()
+             if t.get_visible() and t.get_text().strip()]  # fmt: skip
+    if len(boxes) < 2:
+        return False
+    gap = renderer.points_to_pixels(gap_pt)
+    if which == "x":
+        boxes.sort(key=lambda b: b.x0)
+        return any(a.x1 + gap > b.x0 for a, b in itertools.pairwise(boxes))
+    boxes.sort(key=lambda b: b.y0)
+    return any(a.y1 + gap > b.y0 for a, b in itertools.pairwise(boxes))
 
 
 def round_ticks(low: float, high: float, min_n: int = 4, max_n: int = 5) -> np.ndarray:

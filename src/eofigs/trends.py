@@ -21,7 +21,7 @@ from eofigs import maps
 from eofigs._colour import NO_DATA_COLOUR, SECONDARY_COLOUR, TEXT_COLOUR
 from eofigs._presets import get_journal, resolve_width
 from eofigs.stats import fdr_mask
-from eofigs.styling import _STATE, label_panels, round_ticks
+from eofigs.styling import _STATE, label_panels, round_ticks, tick_labels_overlap
 from eofigs.variables import Variable
 from eofigs.variables import variable as lookup_variable
 
@@ -313,6 +313,7 @@ def trend_map(
         "crs": crs.to_string(),
         "limits": limit,
         "limits_rule": rule,
+        "colourbar_scale": tick_scale(limit),
         "extend": extend,
         **stats,
         "fdr": fdr_record,
@@ -763,13 +764,55 @@ def _draw_colourbar(holder, ax, lay, image, var, extend):
         rect = (x / lay.fig_w, y / lay.fig_h, w / lay.fig_w, h / lay.fig_h)
         bar = holder.colorbar(image, cax=holder.add_axes(rect), orientation="horizontal",
                               extend=extend)  # fmt: skip
-    bar.set_label(var.short_label, size=mpl.rcParams["font.size"])
+    limit = float(image.norm.vmax)
+    exponent = tick_scale(limit)
+    factor = 10.0**exponent
+    bar.set_label(scaled_label(var, exponent), size=mpl.rcParams["font.size"])
     bar.ax.tick_params(labelsize=small, width=0.6, length=2.5)
     bar.outline.set_linewidth(0.6)
-    bar.set_ticks(diverging_ticks(image.norm.vmax, _STATE.get("max_ticks") or 5))
-    bar.formatter = FuncFormatter(lambda value, _: tick_label(value))
+    bar.formatter = FuncFormatter(lambda value, _: tick_label(value / factor))
+    bar.set_ticks(diverging_ticks(limit / factor, _STATE.get("max_ticks") or 5) * factor)
     bar.update_ticks()
+    if tick_labels_overlap(bar.ax, "x"):  # still crowded: three round ticks around zero
+        bar.set_ticks(diverging_ticks(limit / factor, 3) * factor)
+        bar.update_ticks()
+    bar.ax._eofigs_tick_scale = exponent
     return bar
+
+
+#: Colour-bar limits below this are written as a power of ten times a short number, with the
+#: factor in the label ("NDVI trend (10⁻³ yr⁻¹)", ticks −5 to 5), so the tick labels stay short.
+SCALE_BELOW = 0.01
+
+
+def tick_scale(limit: float) -> int:
+    """Power of ten that brings a small colour-bar limit into the range 1-10, else 0.
+
+    Examples
+    --------
+    >>> from eofigs.trends import tick_scale
+    >>> tick_scale(0.08), tick_scale(0.008), tick_scale(0.001), tick_scale(0.0006)
+    (0, -3, -3, -4)
+    """
+    if not np.isfinite(limit) or limit <= 0 or limit >= SCALE_BELOW:
+        return 0
+    return int(np.floor(np.log10(limit) + 1e-9))
+
+
+def scaled_label(var: Variable, exponent: int) -> str:
+    """Short label with a power-of-ten factor before the units ("NIRv trend (10$^{-3}$ yr$^{-1}$)").
+
+    Examples
+    --------
+    >>> from eofigs.trends import scaled_label
+    >>> from eofigs.variables import variable
+    >>> scaled_label(variable("ndvi").trend(), -3)
+    'NDVI trend (10$^{-3}$ decade$^{-1}$)'
+    """
+    if exponent == 0:
+        return var.short_label
+    units = f"10$^{{{exponent}}}$" + (f" {var.units}" if var.units else "")
+    return f"{var.symbol} ({units})"
 
 
 def tick_label(value: float) -> str:
@@ -888,11 +931,13 @@ def _draw_profile(holder, ax, lay, shown, crs, extent, limit, var, small):
     prof.yaxis.tick_right()
     prof.tick_params(labelsize=small, width=0.6, length=2.5)
     prof.grid(axis="y", color=SECONDARY_COLOUR, linewidth=0.3, alpha=0.6, linestyle=(0, (2, 2)))
-    prof.set_xlabel(f"Median {var.short_label}", size=mpl.rcParams["font.size"])
+    exponent = tick_scale(limit)  # same power-of-ten factor as the colour bar
+    factor = 10.0**exponent
+    prof.set_xlabel(f"Median {scaled_label(var, exponent)}", size=mpl.rcParams["font.size"])
     for spine in prof.spines.values():
         spine.set_linewidth(0.6)
-    prof.set_xticks(diverging_ticks(limit, _STATE.get("max_ticks") or 5))
-    prof.xaxis.set_major_formatter(FuncFormatter(lambda value, _: tick_label(value)))
+    prof.set_xticks(diverging_ticks(limit / factor, _STATE.get("max_ticks") or 5) * factor)
+    prof.xaxis.set_major_formatter(FuncFormatter(lambda value, _: tick_label(value / factor)))
     return prof, {"step_deg": round(float(step), 4), "bands": int(len(centres)),
                   "min_pixels": PROFILE_MIN_PIXELS}  # fmt: skip
 

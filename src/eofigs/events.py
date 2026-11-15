@@ -781,6 +781,7 @@ def _draw(
         "phase_steps": steps,
         "limits": limit,
         "limits_rule": rule,
+        "colourbar_scale": trends.tick_scale(limit),
         "extend": extend,
         "clipped_percent": round(clipped, 2),
         "excluded_percent": round(100.0 * float(excluded.sum()) / max(int(footprint.sum()), 1), 2),

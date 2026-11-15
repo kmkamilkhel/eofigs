@@ -44,6 +44,10 @@ legal status of any country or territory. Full code and downloads:
    variables use `vik` in the physically sensible direction (see
    [Variables](variables.md)). The limits are symmetric, at the 98th percentile of
    |slope| rounded up (`limits=`), with arrows on the colour bar when values are clipped.
+   Limits below 0.01 are written as a power of ten times a short number, with the factor
+   in the colour-bar label ("NIRv trend (10⁻³ decade⁻¹)", ticks −5 to 5); the latitude
+   profile uses the same factor, and the caption keeps the true values. If neighbouring
+   tick labels still touch at the printed size, the colour bar drops to three ticks.
 5. **Two masked classes in grey #BDBDBD, told apart by hatching** (plain grey would be too
    close to weak greening for colour-blind readers):
    - **not vegetated** (diagonal hatching): for vegetation indices, pixels whose mean over
