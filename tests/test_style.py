@@ -46,6 +46,7 @@ def test_mathtext_uses_the_text_font_and_weight(sans_font):
     assert mpl.rcParams["mathtext.rm"] == f"{sans_font}:bold"
     assert mpl.rcParams["mathtext.it"] == f"{sans_font}:italic:bold"
     assert mpl.rcParams["mathtext.fallback"] == "stixsans"
+    assert mpl.rcParams["mathtext.cal"] == f"{sans_font}:bold"
     eofigs.set_style("custom", font=sans_font)
     assert mpl.rcParams["mathtext.rm"] == sans_font
     assert style_module._fc_escape("Source-Sans:3") == r"Source\-Sans\:3"

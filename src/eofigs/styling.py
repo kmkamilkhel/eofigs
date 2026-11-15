@@ -97,6 +97,7 @@ def _mathtext_params(name: str, family: str, bold: bool) -> dict[str, Any]:
         "mathtext.sf": f"{font}{weight}",
         "mathtext.it": f"{font}:italic{weight}",
         "mathtext.bf": f"{font}:bold",
+        "mathtext.cal": f"{font}{weight}",  # the default "cursive" has no bold face on macOS
         "mathtext.default": "regular",
         "mathtext.fallback": "stix" if family == "serif" else "stixsans",
     }
