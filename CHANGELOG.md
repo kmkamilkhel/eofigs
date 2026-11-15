@@ -12,11 +12,16 @@ drawn again.
 ### Fixed
 
 - `set_style` sets mathtext to the chosen text font and weight (`mathtext.fontset`
-  "custom", with `rm`, `it`, `bf` and `sf` mapped to the text font), so units, subscripts
-  and symbols match the text. With `bold=True`, matplotlib no longer prints "findfont:
-  Failed to find font weight bold" notices for its mathtext fallback fonts (#38).
+  "custom", with `rm`, `it`, `bf`, `sf` and `cal` mapped to the text font), so units,
+  subscripts and symbols match the text. With `bold=True`, matplotlib no longer prints
+  "findfont: Failed to find font weight bold" notices for its built-in mathtext fallback
+  fonts; notices about any other font, including a missing font you asked for, are kept
+  (#38).
 
 ### Changed
+
+- Units and subscripts are now set in the text font and weight; glyphs may shift
+  slightly. No change to what figures show (#38).
 
 - The citation page and the README give the version DOI of 0.2.0
   (10.5281/zenodo.24143866).

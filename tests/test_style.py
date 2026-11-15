@@ -70,6 +70,40 @@ def test_bold_mathtext_prints_no_font_warnings(sans_font, caplog):
     plt.close(fig)
 
 
+def test_missing_user_font_still_warns(sans_font, caplog):
+    # eofigs's own warning when the requested text font is not installed
+    with pytest.warns(UserWarning, match="NoSuchFont"):
+        eofigs.set_style("custom", font="NoSuchFont", bold=True)
+    # matplotlib's notice for a missing family requested directly is not filtered
+    fig, ax = eofigs.new_figure("single", height_mm=40)
+    ax.text(0.5, 0.5, "label", fontfamily="NoSuchFont")
+    with caplog.at_level(logging.WARNING, logger="matplotlib.font_manager"):
+        fig.canvas.draw()
+    assert any("NoSuchFont" in r.getMessage() for r in caplog.records)
+    plt.close(fig)
+    eofigs.set_style(None)
+
+
+def test_filter_drops_only_builtin_math_fallback_notices():
+    keep = style_module._MathFallbackFilter().filter
+
+    def record(message):
+        return logging.LogRecord(
+            "matplotlib.font_manager", logging.WARNING, "", 0, message, None, None
+        )
+
+    for name in ("cmex10", "cmmi10", "STIXSizeFiveSym", "STIXGeneral", "DejaVu Sans Display"):
+        assert not keep(
+            record(f"findfont: Failed to find font weight bold for {name}, now using 400.")
+        )
+    for message in (
+        "findfont: Failed to find font weight bold for NoSuchFont, now using 400.",
+        "findfont: Failed to find font weight bold for Arial Narrow, now using 400.",
+        "findfont: Font family 'NoSuchFont' not found.",
+    ):
+        assert keep(record(message))
+
+
 def test_set_style_none_restores_previous_settings(sans_font):
     before = mpl.rcParams["font.size"]
     eofigs.set_style("frontiers", font=sans_font, base_size=11)
