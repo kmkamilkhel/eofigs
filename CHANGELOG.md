@@ -13,6 +13,8 @@ drawn again.
 
 - The citation page and the README give the version DOI of 0.2.1
   (10.5281/zenodo.24241081).
+- cmcrameri now comes from conda-forge in the development environment and in the installation
+  guide: the conda-forge build 1.10 (build 1) reports its version correctly.
 
 ## [0.2.1] - 2026-11-15
 

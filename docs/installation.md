@@ -9,18 +9,14 @@ geopandas and pypdf (which reads exported PDFs for the font check). On Windows a
 simplest route to these libraries is conda-forge:
 
 ```bash
-conda create -n eofigs -c conda-forge python=3.13 cartopy rioxarray geopandas matplotlib-scalebar pypdf
+conda create -n eofigs -c conda-forge python=3.13 cartopy rioxarray geopandas matplotlib-scalebar pypdf cmcrameri
 conda activate eofigs
-pip install cmcrameri eofigs
+pip install eofigs
 ```
 
-### cmcrameri from conda-forge
-
-The conda-forge build of cmcrameri 1.10 reports its version as `0.0.0`
-([conda-forge/cmcrameri-feedstock#11](https://github.com/conda-forge/cmcrameri-feedstock/issues/11)),
-so pip treats eofigs' requirement `cmcrameri>=1.9` as unmet and installs cmcrameri again from
-PyPI. This is harmless. The commands above install cmcrameri from PyPI in the first place, which
-keeps the conda environment tidy.
+Environments created before 16 November 2026 may hold the first conda-forge build of
+cmcrameri 1.10, which reports its version as `0.0.0`; pip then installs cmcrameri again from
+PyPI. Run `conda update -c conda-forge cmcrameri` to get the corrected build.
 
 ### Development version
 
